@@ -1,0 +1,121 @@
+﻿@attribute [Authorize]
+
+@page "/log-list"
+@using SimurgWeb.Services
+@inject LogService LogService
+
+<h3>Log Listesi</h3>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Proje</th>
+            <th>Kullanıcı</th>
+            <th>Tarih</th>
+            <th>Hareket</th>
+            <th>İşlem</th>
+            <th>Mesaj</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (logItems != null)
+        {
+            @foreach (var log in logItems)
+            {
+                <tr>
+                    <td>@log.ProjectName</td>
+                    <td>@log.UserName</td>
+                    <td>@log.CreatedTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>
+                        <span class="badge @(GetBadgeClass(log.Action))">@GetActionName(log.Action)</span>
+                    </td>
+                    <td>
+                        @if (log.IsDeleted)
+                        {
+                            <span class="badge bg-danger">Silindi</span>
+                        }
+                    </td>
+                    <td>@log.Message</td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" class="text-center">Veri yükleniyor...</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Sayfalama Kontrolleri -->
+<div class="d-flex justify-content-between mt-3">
+    <button class="btn btn-primary" @onclick="PreviousPage" disabled="@(currentPage == 1)">Önceki</button>
+    <span>Sayfa @currentPage / @totalPages</span>
+    <button class="btn btn-primary" @onclick="NextPage" disabled="@(currentPage >= totalPages)">Sonraki</button>
+</div>
+
+@code {
+    private List<LogItem> logItems = new List<LogItem>();
+
+    private int currentPage = 1;
+    private int pageSize = 20;
+    private int totalPages = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        logItems = await LogService.GetLogs(currentPage, pageSize);
+        GetTotalPageSize();
+    }
+
+    private void GetTotalPageSize()
+    {
+        totalPages = LogService.GetTotalPageCount();
+        totalPages = totalPages == 0 ? 1 : totalPages;
+    }
+
+    private async Task NextPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await LoadDataAsync();
+        }
+    }
+
+    private string GetBadgeClass(string action)
+    {
+        return action switch
+        {
+            "Expense" => "bg-info",
+            "Income" => "bg-warning",
+            //"Uyarı" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetActionName(string action)
+    {
+        return action switch
+        {
+            "Expense" => "Gider",
+            "Income" => "Gelir",
+            _ => "-"
+        };
+    }
+
+}

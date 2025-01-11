@@ -1,0 +1,486 @@
+﻿@attribute [Authorize]
+
+@page "/projectdetail/{ProjectId:int}"
+
+@using System
+@using SimurgWeb.Services
+@using SimurgWeb.SimurgModels
+@inject ProjectService ProjectService
+@inject NavigationManager NavigationManager
+
+@inject IJSRuntime JSRuntime
+
+@if (IsLoading)
+{
+    <p>Veriler yükleniyor...</p>
+}
+else if (Project == null)
+{
+    <p>Proje bulunamadı.</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <!-- Tarih ve Kullanıcı Adı Kutuları -->
+        <div class="d-flex align-items-center" style="gap: 10px;">
+            <!-- Başlık Alanı -->
+            <div style="max-width: 250px;">
+                <h4 class="fw-bold mb-0">Proje Detay</h4>
+            </div>
+            @if (ProjectId > 0)
+            {
+                <!-- Kullanıcı Adı Kutusu -->
+                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff;">
+                    <label class="form-label mb-1" style="font-size: 0.9rem; font-weight:bold;">Oluşturan</label>
+                    <div style="font-size: 0.85rem; font-weight: 500;">@Project.CreatedBy</div>
+                </div>
+
+                <!-- Tarih Kutusu -->
+                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff;">
+                    <label class="form-label mb-1" style="font-size: 0.9rem; font-weight:bold;">Tarih</label>
+                    <div style="font-size: 0.85rem; font-weight: 500;">@Project.CreatedDate.ToString("dd.MM.yyyy")</div>
+                </div>
+                <!-- Tarih Kutusu -->
+                <div class="border rounded p-2 text-center" style="@(Project.IsActive ? "background-color: #ffffcc;" : "background-color: #ccffcc;")">
+                    <label class="form-label mb-1" style="font-size: 0.9rem; font-weight:bold;">Durumu</label>
+                    <div style="font-size: 0.85rem; font-weight: 500;">@(Project.IsActive ? "Devam Ediyor" : "Tamamlandı")</div>
+                </div>
+                
+                @if (Project.IsActive)
+                {
+                    <div class="border rounded p-2 text-center" style="@(Project.IsActive ? "background-color: #f0f8ff;" : "background-color: #ccffcc;")">
+                        <button class="btn btn-primary mt-2" @onclick="ProjeClose">
+                            Projeyi Bitir
+                        </button>
+                    </div>
+                }
+
+                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff">
+                    <button class="btn btn-secondary" @onclick="ToggleDetails">Notlar</button>
+                </div>
+                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff">
+                    <button class="btn btn-secondary" @onclick="OpenUserModal">Yetkiler</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (ShowUserModal)
+    {
+        <div class="modal" style="display:block; background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Kullanıcı Seçimi</h5>
+                        <button type="button" class="btn-close" @onclick="CloseUserModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        @foreach (var user in Users)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="user_@user.UserId" @bind="user.IsSelected" />
+                                <label class="form-check-label" for="user_@user.UserId">@user.UserName</label>
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" @onclick="SaveUserPermissions">Kaydet</button>
+                        <button type="button" class="btn btn-secondary" @onclick="CloseUserModal">Kapat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Proje Detay Açılır Metin Alanı -->
+    <div class="mt-3" style="padding-bottom:15px; padding-top : 15px;">
+        @if (ShowDetails)
+        {
+            <h6>Proje Notları</h6>
+            <textarea placeholder="Projeyle ilgili notları buraya giriniz" class="form-control mt-2" rows="4" @bind="Project.Explanation"></textarea>
+        }
+    </div>
+
+    <EditForm Model="@Project" OnValidSubmit="SaveProject">
+        <!-- Proje Adı ve Butonlar Yan Yana -->
+        <div class="d-flex gap-2 mb-3 align-items-center">
+            @if (Project.IsActive || ProjectId == 0)
+            {
+                <InputText id="projectName" class="form-control" @bind-Value="Project.ProjectName" placeholder="Proje adını giriniz" />
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            }
+            else
+            {
+                <InputText id="projectName" class="form-control" @bind-Value="Project.ProjectName" placeholder="Proje adını giriniz" readonly />
+            }
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Geri</button>
+        </div>
+    </EditForm>
+
+    <hr />
+
+    @if (ProjectId > 0)
+    {
+        <!-- Gelir ve Gider Bölümleri -->
+        <div class="row">
+            <!-- Gider Listesi (Solda) -->
+            <div class="col-md-6">
+                <h4>Giderler | @($"{expenseTotal:N2} ₺")</h4>
+                <div class="mb-3" style="font-size: small;">
+                    <!-- Mevcut Giderlerin Listesi -->
+                    <div>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Açıklama</th>
+                                    <th>Tutar</th>
+                                    <th>Dosya</th>
+                                    <th>Aksiyonlar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var expense in Expenses)
+                                {
+                                    <tr>
+                                        <td>@expense.Description</td>
+                                        <td>@($"{expense.Amount:N2} ₺")</td>
+                                        <td>
+                                            @if (expense.IsFile)
+                                            {
+                                                <div class="d-flex align-items-center">
+                                                    <button @onclick="@(async () => await ShowImageInNewTab(expense.AddedFile))" class="btn btn-outline d-flex align-items-center" style="gap: 3px; padding: 5px 10px; border-radius: 3px;">
+                                                        <i class="oi oi-file" style="font-size: 1rem;"></i>
+                                                        <span style="font-size: 0.9rem;">Dosyayı Göster</span>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (Project.IsActive)
+                                            {
+                                                <!-- Sil Butonu -->
+                                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveExpense(expense)">
+                                                    <i class="fas fa-trash-alt"></i> Sil
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (Project.IsActive)
+                    {
+                        <!-- Yeni Gider Ekleme Alanı -->
+                        <div class="input-group mb-3">
+                            <!-- Gider Açıklaması -->
+                            <InputText class="form-control" placeholder="Açıklama" @bind-Value="NewExpense.Description" style="font-size: small; width: 20%;" />
+
+                            <!-- Tutar -->
+                            <InputNumber class="form-control" placeholder="Tutar" @bind-Value="NewExpense.Amount" style="font-size: small; width: 5%;" />
+
+                            <!-- Dosya Seçme -->
+                            <InputFile class="form-control" OnChange="ExpenseHandleFileSelected" @bind-Value="NewExpense.File" style="font-size: small; width: 10%;" />
+
+                            <!-- Gider Ekle Butonu -->
+                            <button type="button" class="btn btn-warning" @onclick="AddExpense" style="font-size: small; width: 10%;">Ekle</button>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Gelir Listesi (Sağda) -->
+            <div class="col-md-6">
+                <h4>Gelirler | @($"{incomesTotal:N2} ₺")</h4>
+                <div class="mb-3" style="font-size: small;">
+                    <!-- Mevcut Gelirlerin Listesi -->
+                    <div>
+                        <!-- Giderler Tablosu -->
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Açıklama</th>
+                                    <th>Tutar</th>
+                                    <th>Dosya</th>
+                                    <th>Aksiyonlar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var income in Incomes)
+                                {
+                                    <tr>
+                                        <td>@income.Description</td>
+                                        <td>@string.Format("{0:0.00} ₺", income.Amount)</td>
+                                        <td>
+                                            @if (income.IsFile)
+                                            {
+                                                <div class="d-flex align-items-center">
+                                                    <button @onclick="@(async () => await ShowImageInNewTab(income.AddedFile))" class="btn btn-outline d-flex align-items-center" style="gap: 3px; padding: 5px 10px; border-radius: 3px;">
+                                                        <i class="oi oi-file" style="font-size: 1rem;"></i>
+                                                        <span style="font-size: 0.9rem;">Dosyayı Göster</span>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (Project.IsActive)
+                                            {
+                                                <!-- Sil Butonu -->
+                                                <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveIncome(income)">
+                                                    <i class="fas fa-trash-alt"></i> Sil
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (Project.IsActive)
+                    {
+                        <!-- Yeni Gelir Ekleme Alanı -->
+                        <div class="input-group mb-3">
+                            <!-- Gider Açıklaması -->
+                            <InputText class="form-control" placeholder="Açıklama" @bind-Value="NewIncome.Description" style="font-size: small; width: 20%;" />
+
+                            <!-- Tutar -->
+                            <InputNumber class="form-control" placeholder="Tutar" @bind-Value="NewIncome.Amount" style="font-size: small; width: 5%;" />
+
+                            <!-- Dosya Seçme -->
+                            <InputFile class="form-control" OnChange="IncomeHandleFileSelected" @bind-Value="NewIncome.File" style="font-size: small; width: 10%;" />
+
+                            <!-- Gider Ekle Butonu -->
+                            <button type="button" class="btn btn-warning" @onclick="AddIncome" style="font-size: small; width: 10%;">Ekle</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+<script>
+    window.openImageInNewTab = function (imageDataUrl) {
+        var newWindow = window.open();
+        if (newWindow) {
+            newWindow.document.write('<img src="' + imageDataUrl + '" alt="Resim" />');
+        } else {
+            alert("Yeni sekme açılamadı. Tarayıcı pop-up engelleyicisini devre dışı bırakın.");
+        }
+    };
+</script>
+
+@code {
+    private bool ShowUserModal = false;
+    private List<ProjectAuthorizeUser> Users = new();
+
+    private decimal incomesTotal = 0M;
+    private decimal expenseTotal = 0M;
+
+    private async Task OpenUserModal()
+    {
+        var token = await GetTokenAsync();
+        Users = await ProjectService.GetUserList(token, ProjectId);
+        ShowUserModal = true;
+    }
+
+    private void CloseUserModal()
+    {
+        ShowUserModal = false;
+    }
+
+    private async Task SaveUserPermissions()
+    {
+        var token = await GetTokenAsync();
+        var res = await ProjectService.UserAuthorizeAddOrDelete(token, Users);
+        ShowUserModal = false;
+    }
+
+
+    //---------------------------
+
+    private bool ShowDetails = false;
+
+    private void ToggleDetails()
+    {
+        ShowDetails = !ShowDetails;
+    }
+
+    private void SaveProjectDetails()
+    {
+        ShowDetails = false;
+    }
+
+    //------------------------------------
+    [Parameter]
+    public int ProjectId { get; set; }
+    public List<Expense> Expenses { get; set; } = new List<Expense>();
+    public List<Income> Incomes { get; set; } = new List<Income>();
+
+    private Income NewIncome { get; set; } = new Income();
+    private Expense NewExpense { get; set; } = new Expense();
+
+    private void ExpenseHandleFileSelected(InputFileChangeEventArgs e)
+    {
+        if (e.FileCount > 0)
+        {
+            // Seçilen ilk dosyayı alıyoruz ve NewExpense.File'a atıyoruz
+            NewExpense.File = e.File;
+        }
+    }
+
+    private void IncomeHandleFileSelected(InputFileChangeEventArgs e)
+    {
+        if (e.FileCount > 0)
+        {
+            // Seçilen ilk dosyayı alıyoruz ve NewExpense.File'a atıyoruz
+            NewIncome.File = e.File;
+        }
+    }
+
+    private async Task AddIncome()
+    {
+        if (!string.IsNullOrWhiteSpace(NewIncome.Description) && NewIncome.Amount > 0)
+        {
+            var token = await GetTokenAsync();
+            var res = await ProjectService.AddIncome(token, ProjectId, NewIncome);
+            Incomes = await ProjectService.GetIncomeList(token,ProjectId);
+            // Incomes.Add(new Income { Description = NewIncome.Description, Amount = NewIncome.Amount, File = NewIncome.File });
+            NewIncome = new Income(); // Yeni ekleme için alanları temizle
+        }
+    }
+
+    private async Task RemoveIncome(Income income)
+    {
+        var token = await GetTokenAsync();
+        var res = await ProjectService.DeleteExpenseOrIncome(token, income.Id);
+        Incomes = await ProjectService.GetIncomeList(token,ProjectId);
+    }
+
+    private async Task AddExpense()
+    {
+        if (!string.IsNullOrWhiteSpace(NewExpense.Description) && NewExpense.Amount > 0)
+        {
+            var token = await GetTokenAsync();
+            var res = await ProjectService.AddExpense(token, ProjectId, NewExpense);
+            Expenses = await ProjectService.GetExpenseList(token,ProjectId);
+            // Expenses.Add(new Expense { Description = NewExpense.Description, Amount = NewExpense.Amount, File = NewExpense.File });
+            NewExpense = new Expense(); // Yeni ekleme için alanları temizle
+        }
+    }
+
+    private async Task RemoveExpense(Expense expense)
+    {
+        var token = await GetTokenAsync();
+        var res = await ProjectService.DeleteExpenseOrIncome(token, expense.Id);
+        Expenses = await ProjectService.GetExpenseList(token,ProjectId);
+    }   
+
+    private async Task ProjeClose()
+    {
+        var token = await GetTokenAsync();
+        await ProjectService.ProjectCloseAsync(token, ProjectId);
+        NavigationManager.NavigateTo("/"); // İptal edilirse listeye yönlendir
+    }
+
+    //----------------------
+
+    private string ButtonText;
+
+    private bool IsLoading = true;
+    private ProjectDetailModel Project;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ButtonText = ProjectId > 0 ? "İptal" : "Geri";
+        try
+        {
+            IsLoading = true;
+            var token = await GetTokenAsync();
+            Project = await ProjectService.GetProjectByIdAsync(token,ProjectId); // Servisten proje verilerini çek
+            Expenses = await ProjectService.GetExpenseList(token,ProjectId);
+            Incomes = await ProjectService.GetIncomeList(token,ProjectId);
+
+            incomesTotal = Incomes.Sum(p => p.Amount);
+            expenseTotal = Expenses.Sum(p => p.Amount);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Hata: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveProject()
+    {
+        try
+        {
+            // Proje güncelleme işlemi
+            var token = await GetTokenAsync();
+            await ProjectService.UpdateProjectAsync(token, Project);
+            NavigationManager.NavigateTo("/"); // Kaydetmeden sonra listeye yönlendir
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Hata: {ex.Message}");
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/"); // İptal edilirse listeye yönlendir
+    }
+
+    private async Task<string> GetTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    private async Task ShowImageInNewTab(byte[] imageBytes)
+    {
+        if (imageBytes != null && imageBytes.Length > 0)
+        {
+            // Byte dizisini base64 formatına çeviriyoruz
+            var base64String = Convert.ToBase64String(imageBytes);
+            var imageDataUrl = $"data:image/png;base64,{base64String}"; // Uygun MIME tipi
+
+            // JavaScript kullanarak yeni bir sekmede bu resmi açıyoruz
+            await JSRuntime.InvokeVoidAsync("openImageInNewTab", imageDataUrl);
+        }
+    }
+
+    public class ProjectDetailModel
+    {
+        public int Id { get; set; }
+        public string ProjectName { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public string CreatedBy { get; set; }
+        public bool IsActive { get; set; }
+        public string? Explanation { get; set; }
+    }
+
+    public class Income
+    {
+        public int Id { get; set; }
+        public string Description { get; set; }
+        public decimal Amount { get; set; }
+        public IBrowserFile File { get; set; } // Dosya alanı eklendi
+        public byte[]? AddedFile { get; set; }
+        public bool IsFile { get; set; }
+    }
+
+    public class Expense
+    {
+        public int Id { get; set; }
+        public string Description { get; set; }
+        public decimal Amount { get; set; }
+        public IBrowserFile File { get; set; } // Dosya alanı eklendi
+        public byte[]? AddedFile { get; set; }
+        public bool IsFile { get; set; }
+    }
+}
+ 

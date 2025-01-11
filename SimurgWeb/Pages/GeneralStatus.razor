@@ -1,0 +1,166 @@
+﻿@attribute [Authorize]
+
+@page "/generalstatus"
+@using SimurgWeb.Services
+
+@inject PeriodService _periodService
+
+<div class="container mt-4">
+    <!-- Dönem Seçimi -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="periodSelect" class="form-label">Dönem</label>
+            <select id="periodSelect" class="form-select" @bind="SelectPeriodId" @bind:after="OnPeriodChange">
+                @if (Periods != null && Periods.Any())
+                {
+                    <option value="0">Dönemler</option>
+                    @foreach (var period in Periods)
+                    {
+                        <option value="@period.Id">@period.Name</option>
+                    }
+                }
+                else
+                {
+                    <option value="0">Dönemler Yükleniyor...</option>
+                }
+            </select>
+        </div>
+    </div>    
+
+    @if (SelectPeriodId > 0)
+    {
+        <!-- Gelir ve Gider Bilgileri -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label for="income" class="form-label">Gelir</label>
+                <div class="form-control" id="income">@string.Format("{0:0.00} ₺", SelectPeriods.IncomingTotalPrice)</div>
+            </div>
+            <div class="col-md-6">
+                <label for="expense" class="form-label">Gider</label>
+                <div class="form-control" id="expense">@string.Format("{0:0.00} ₺", SelectPeriods.ExpenceTotalPrice)</div>
+            </div>
+        </div>
+
+        <!-- Liste -->
+        <div class="row">
+            <div class="col-md-12">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Açıklama</th>
+                            <th>Tip</th>
+                            <th>Fiyat</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (SelectPeriods.PeriodItems != null && SelectPeriods.PeriodItems.Any())
+                        {
+                            @foreach (var item in SelectPeriods.PeriodItems)
+                            {
+                                <tr>
+                                    <td>@item.Description</td>
+                                    <td>@item.IsIncoming</td>
+                                    <td>@string.Format("{0:0.00} ₺", item.Price)</td>
+                                    <td>
+                                        <button class="btn btn-warning btn-sm" @onclick="() => SelectPeriodItem = item">Düzenle</button>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteTransaction(item)">Sil</button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center">Henüz bir işlem yok.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Ekleme Alanı -->
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <input type="text" class="form-control" placeholder="Açıklama" @bind="SelectPeriodItem.Description" />
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" @bind="SelectPeriodItem.IsIncoming">
+                    <option selected disabled>Tip Seçin...</option>
+                    <option value="Gelir">Gelir</option>
+                    <option value="Gider">Gider</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="number" class="form-control" placeholder="Fiyat" @bind="SelectPeriodItem.Price" />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" @onclick="AddTransaction">Ekle</button>
+            </div>
+        </div>
+    }    
+</div>
+
+@code {
+
+    // Dönemler listesi
+    private List<PeriodMaster> Periods = new List<PeriodMaster>();
+    private PeriodMaster SelectPeriods = new PeriodMaster();
+    private PeriodItem SelectPeriodItem = new PeriodItem();
+    private int SelectPeriodId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Proje listesini dinamik olarak alıyoruz
+        await GetListAsync();
+
+        // Eğer dönemler mevcutsa ilk dönemi otomatik seç
+        if (Periods != null && Periods.Any())
+        {
+            SelectPeriodId = Periods.First().Id; // İlk dönemin ID'si
+            SelectPeriods = Periods.First();     // İlk dönem
+        }
+    }
+
+    // Dönem değiştiğinde işlem yapma
+    private async Task GetListAsync()
+    {
+        var _periods = await _periodService.GetPeriodListAsync();
+        if (_periods != null)
+        {
+            Periods = _periods;
+        }
+    }
+
+    // Yeni işlem ekleme
+    private async Task AddTransaction()
+    {
+        SelectPeriodItem.PeriodId = SelectPeriodId;
+        var result = await _periodService.AddPeriodItem(SelectPeriodItem);
+        await GetListAsync();
+        if (SelectPeriodId > 0)
+        {
+            SelectPeriods = Periods.FirstOrDefault(p => p.Id == SelectPeriodId);
+            SelectPeriodItem = new PeriodItem();
+        }
+    }
+
+    // İşlem silme
+    private async Task DeleteTransaction(PeriodItem item)
+    {
+        var result = await _periodService.DeletePeriodItem(item);
+        await GetListAsync();
+        if (SelectPeriodId > 0)
+        {
+            SelectPeriods = Periods.FirstOrDefault(p => p.Id == SelectPeriodId);
+            SelectPeriodItem = new PeriodItem();
+        }
+    }
+
+    // Dönem değiştiğinde işlem yapma
+    private void OnPeriodChange()
+    {
+        SelectPeriods = Periods.FirstOrDefault(p => p.Id == SelectPeriodId);
+    }
+}

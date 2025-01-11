@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35303.130
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimurgWeb", "SimurgWeb\SimurgWeb.csproj", "{D946195A-F916-40C9-A975-AC8A40C16644}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D946195A-F916-40C9-A975-AC8A40C16644}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D946195A-F916-40C9-A975-AC8A40C16644}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D946195A-F916-40C9-A975-AC8A40C16644}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D946195A-F916-40C9-A975-AC8A40C16644}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F5B4E722-A316-4ABD-86F8-AE899B977843}
+	EndGlobalSection
+EndGlobal

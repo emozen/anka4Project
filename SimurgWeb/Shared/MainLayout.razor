@@ -1,0 +1,93 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@using SimurgWeb.Services
+@inject AuthService AuthService
+@inject IHttpContextAccessor HttpContextAccessor
+@using Microsoft.AspNetCore.Authentication
+@inject AuthenticationStateProvider AuthStateProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+
+
+<PageTitle>SimurgWeb</PageTitle>
+
+@if (IsAuthenticated)
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+
+        <main>
+            <div class="top-row px-4">
+
+                <button class="btn btn-link nav-link" @onclick="HandleLogout">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış Yap
+                </button>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+else
+{       
+    <div class="full-page">
+        <h1>test</h1>
+        @Body
+    </div>
+}
+
+@code {
+    private bool IsAuthenticated = false;
+    protected override void OnInitialized()
+    {
+        CheckAuthenticationState();
+    }
+    private async void HandleLogout()
+    {
+        await RemoveTokenAsync();
+        IsAuthenticated = false;
+        NavigationManager.NavigateTo("/login", true);
+    }
+
+    private void CheckAuthenticationState()
+    {
+        // Authentication durumunu async bir şekilde kontrol et
+        Task.Run(async () =>
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            IsAuthenticated = authState.User.Identity.IsAuthenticated;
+
+            if (!IsAuthenticated)
+            {
+                // Kullanıcı login değilse login sayfasına yönlendirin
+                NavigationManager.NavigateTo("/login");
+            }
+
+            // UI'yı güncelle
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task RemoveTokenAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
+    }
+}
+
+
+<style>
+    .full-page {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh; /* Tüm ekranı kaplar */
+        background-color: #f8f9fa; /* Açık gri arka plan */
+        margin: 0;
+    }
+</style>

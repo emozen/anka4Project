@@ -1,0 +1,217 @@
+﻿@attribute [Authorize]
+@page "/userlist"
+@using System.Collections.Generic
+@using SimurgWeb.Services
+
+@inject UserService UserService
+@inject NavigationManager NavigationManager
+
+@inject IJSRuntime JSRuntime
+
+<div class="d-flex justify-content-between align-items-center">
+    <h3>Kullanıcı Listesi</h3>
+    <button class="btn btn-success" @onclick="OpenNewModal">Yeni Kullanıcı Ekle</button>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Kullanıcı</th>
+            <th>Şifre</th>
+            <th>Durum</th>
+            <th>İşlemler</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in userItems)
+        {
+            <tr>
+                <td>@user.Id</td>
+                <td>@user.Username</td>
+                <td>@user.Password</td>
+                <td>
+                    <i class="bi @(user.IsActive ? "oi oi-circle-check" : "oi oi-circle-x")"
+                       title="@(user.IsActive ? "Aktif" : "Pasif")"
+                       style="color: @(user.IsActive ? "green" : "red"); font-size: 1.2em;"></i>
+                </td>
+                <td>
+                    <button class="btn btn-primary btn-sm" @onclick="(() => OpenModal(user))">Düzenle</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Modal -->
+<div class="modal fade @ModalClass" tabindex="-1" role="dialog" style="display: @(IsModalOpen ? "block" : "none");">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kullanıcı Düzenle</h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Kullanıcı Adı</label>
+                    <input type="text" class="form-control" id="username" @bind="SelectedUser.Username" />
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Şifre</label>
+                    <input type="password" class="form-control" id="password" @bind="SelectedUser.Password" />
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="isActive" @bind="SelectedUser.IsActive" />
+                    <label class="form-check-label" for="isActive">Aktif mi?</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Kapat</button>
+                <button type="button" class="btn btn-success" @onclick="SaveChanges">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div aria-live="polite" aria-atomic="true" class="position-relative toast-container">
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        @if (ShowToast)
+        {
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">@ToastTitle</strong>
+                    <button type="button" class="btn-close" @onclick="HideToast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body" style="color: white; background-color: @ToastBackgroundColor;">
+                    @ToastMessage
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .toast-container {
+        z-index: 1055; /* Bootstrap modal için kullanılan değerlerin biraz üzerinde */
+    }
+</style>
+
+@code {
+
+    private List<UserItem> userItems = new List<UserItem>();
+
+    private UserItem SelectedUser = new UserItem();
+    private bool IsModalOpen = false;
+    private string ModalClass => IsModalOpen ? "show d-block" : "d-none";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await GetTokenAsync();
+        userItems = await UserService.GetUserList(token);
+    }
+
+    private void OpenModal(UserItem user)
+    {
+        SelectedUser = user;
+        IsModalOpen = true;
+    }
+
+    private void OpenNewModal()
+    {
+        SelectedUser = new UserItem();
+        IsModalOpen = true;
+    }
+
+    private void CloseModal()
+    {
+        IsModalOpen = false;
+    }
+
+    private async Task SaveChanges()
+    {
+        // Simulate save operation
+        CloseModal();
+        try
+        {
+            var token = await GetTokenAsync();
+            var res = await UserService.AddOrUpdateUser(token, SelectedUser);
+            var isNewUser = false;
+            if (SelectedUser.Id == 0)
+            {
+                isNewUser = true;
+            }
+            userItems = await UserService.GetUserList(token);
+            if (res)
+            {
+                if (isNewUser)
+                {
+                    ShowSuccessToast("Kullanıcı eklendi");
+                }
+                else
+                {
+                    ShowSuccessToast("Güncelleme yapıldı");
+                }                
+            }
+            else
+            {
+                ShowErrorToast("Bilgileri kontrol ediniz.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowErrorToast("Hata : " + ex.Message);
+        }        
+    }
+
+    private async Task<string> GetTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    #region
+    private bool ShowToast = false;
+    private string ToastTitle = string.Empty;
+    private string ToastMessage = string.Empty;
+    private string ToastBackgroundColor = "green"; // Varsayılan başarılı için yeşil
+
+    private void ShowSuccessToast(string message)
+    {
+        ToastTitle = "Başarılı!";
+        ToastMessage = message;
+        ToastBackgroundColor = "green";
+        ShowToastNotification();
+    }
+
+    private void ShowErrorToast(string message)
+    {
+        ToastTitle = "Hata!";
+        ToastMessage = message;
+        ToastBackgroundColor = "red";
+        ShowToastNotification();
+    }
+
+    private async void ShowToastNotification()
+    {
+        ShowToast = true;
+        StateHasChanged(); // UI'yi yenile
+        await Task.Delay(3000); // 3 saniye bekle
+        HideToast(); // Toast'u gizle
+    }
+
+    private void HideToast()
+    {
+        ShowToast = false;
+        StateHasChanged(); // UI'yi yenile
+    }
+    #endregion
+
+
+    // private class User
+    // {
+    //     public int Id { get; set; }
+    //     public string Username { get; set; }
+    //     public string Password { get; set; }
+    //     public bool IsActive { get; set; }
+    // }
+}

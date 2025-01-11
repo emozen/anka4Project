@@ -1,0 +1,141 @@
+﻿@page "/login"
+
+@using Microsoft.AspNetCore.Authentication
+@using SimurgWeb.Services
+@using System.Security.Claims
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card shadow-lg p-4" style="width: 100%; max-width: 400px; border-radius: 10px;">
+        <div class="card-body">
+            <h3 class="text-center mb-4">Giriş Yap</h3>
+            <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Kullanıcı Adı</label>
+                    <InputText id="username" class="form-control" @bind-Value="loginModel.UserName" placeholder="Kullanıcı adınızı girin" />
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Şifre</label>
+                    <InputText id="password" class="form-control" @bind-Value="loginModel.Password" type="password" placeholder="Şifrenizi girin" />
+                </div>
+                <button type="submit" class="btn btn-primary w-100" disabled="@isProcessing">Giriş Yap</button>
+            </EditForm>
+
+            @if (isProcessing)
+            {
+                <div class="text-center mt-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3" role="alert">
+                    @errorMessage
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        background: #fff;
+        border: none;
+    }
+
+    .btn-primary {
+        background-color: #6a11cb;
+        border: none;
+    }
+
+        .btn-primary:hover {
+            background-color: #2575fc;
+        }
+
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
+    }
+</style>
+
+@code {
+    private LoginModel loginModel = new LoginModel();
+
+    private bool isProcessing = false; // Loading göstermek için
+    private string errorMessage; // Hata mesajını göstermek için
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var token = await GetTokenAsync();
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                // Kullanıcı giriş yapmış, ana sayfaya yönlendir
+                NavigationManager.NavigateTo("/");
+            }
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        isProcessing = true;
+        errorMessage = string.Empty;
+
+        // Ekranı güncelle
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(1000);
+
+            var token = await AuthService.LoginAsync(loginModel.UserName, loginModel.Password);
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                await SaveTokenAsync(token);
+                NavigationManager.NavigateTo("/",true); // Ana sayfaya yönlendir
+            }
+            else
+            {
+                errorMessage = "Geçersiz kullanıcı adı veya şifre.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Bir hata oluştu: " + ex.Message;
+        }
+        finally
+        {
+            isProcessing = false; // Loading işlemi tamamlandı
+            StateHasChanged(); // Arayüzü yeniden güncelle
+        }
+    }
+
+    private async Task SaveTokenAsync(string token)
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "authToken", token);
+    }
+
+    private async Task<string> GetTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+    }
+
+    private async Task RemoveTokenAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
+    }
+
+    public class LoginModel
+    {
+        public string UserName { get; set; }
+        public string Password { get; set; }
+    }
+}

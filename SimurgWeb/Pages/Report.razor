@@ -1,0 +1,174 @@
+﻿@attribute [Authorize]
+@page "/report"
+@using SimurgWeb.Services
+@inject ReportService reportService
+@inject NavigationManager NavigationManager
+@using Microsoft.AspNetCore.Components.Forms
+@inject IJSRuntime JSRuntime
+
+<div class="container my-4">
+    <!-- Üst Kısım -->
+    <div class="row align-items-center mb-4">
+        <div class="col-md-4">
+            <select class="form-select" aria-label="Proje Seçimi" @bind="selectedProject" @bind:after="OnProjectChanged">
+                <option value="">Proje Seçin</option>
+                @if (projectList != null && projectList.Any())
+                {
+                    @foreach (var project in projectList)
+                    {
+                        <option value="@project.Id">@project.ProjectName</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" id="option1" name="options" value="false" @onchange="SetIncomeExpense">
+                <label class="form-check-label" for="income">Alacak</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" id="option2" name="options" value="true" @onchange="SetIncomeExpense">
+                <label class="form-check-label" for="expense">Borç</label>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" @onclick="GenerateReport">Raporla</button>
+        </div>
+    </div>
+
+    <!-- Excel Dosya Yönetimi -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5>Excel Yönetimi</h5>
+            <InputFile OnChange="OnFileSelected" />
+            @if (!string.IsNullOrEmpty(currentExcelFileName))
+            {
+                <div class="mt-2">
+                    <p>Yüklenen Excel Dosyası: <strong>@currentExcelFileName</strong></p>
+                    <button class="btn btn-danger btn-sm" @onclick="DeleteExcelFile">Sil</button>
+                    <button class="btn btn-primary btn-sm" @onclick="OpenExcelFile">Aç</button>
+                </div>
+            }
+            else
+            {
+                <p>Seçilen proje için dosya bulunamadı.</p>
+            }
+        </div>
+    </div>
+
+    <!-- Liste -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="list-group">
+                @if (incomeExpenseItemList != null && incomeExpenseItemList.Any())
+                {
+                    @foreach (var item in incomeExpenseItemList)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>@item.Description</span>
+                            <span class="badge bg-primary rounded-pill">@($"{item.Amount:N2} ₺")</span>
+                        </li>
+                    }
+                }
+                else
+                {
+                    <li class="list-group-item">Liste boş.</li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <!-- Toplam Fiyat -->
+    <div class="row mt-4">
+        <div class="col-12 text-end">
+            <h5>Toplam Fiyat: <span id="totalPrice">@($"{totalAmount:N2} ₺")</span></h5>
+        </div>
+    </div>
+</div>
+
+@code {
+    public List<ProjectList> projectList { get; set; } = new();
+    public List<IncomeExpenseItems> incomeExpenseItemList { get; set; } = new();
+    public int selectedProject { get; set; }
+    public string selectedProjectName { get; set; }
+    public bool isExpense = false;
+    public decimal totalAmount = 0M;
+    public string currentExcelFileName { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        projectList = await reportService.GetProjectList();
+    }
+
+    private async Task OnProjectChanged()
+    {
+        // Proje değiştiğinde dosya ve listeyi sıfırla
+        incomeExpenseItemList.Clear();
+        totalAmount = 0M;
+
+        var project = projectList.FirstOrDefault(p => p.Id == selectedProject);
+        if (project != null)
+        {
+            selectedProjectName = project.ProjectName;
+
+            try
+            {
+                var fileContent = await reportService.GetExcelFileByProject(selectedProjectName);
+                currentExcelFileName = $"{selectedProjectName}.xlsx"; // Mevcut dosya
+            }
+            catch (FileNotFoundException)
+            {
+                currentExcelFileName = null; // Dosya bulunamadı
+            }
+        }
+        else
+        {
+            selectedProjectName = null;
+            currentExcelFileName = null;
+        }
+    }
+
+    private async Task SetIncomeExpense(ChangeEventArgs e)
+    {
+        var isExpenses = e.Value as string;
+        isExpense = Convert.ToBoolean(isExpenses);
+    }
+
+    private async Task GenerateReport()
+    {
+        // Raporu yükle
+        incomeExpenseItemList = await reportService.GetIncomeExpenseList(isExpense, selectedProject);
+        totalAmount = reportService.GetTotalAmount(incomeExpenseItemList);
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null && !string.IsNullOrEmpty(selectedProjectName))
+        {
+            currentExcelFileName = file.Name;
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10 MB sınır
+            await reportService.UploadExcelFileToProject(stream, file.Name, selectedProjectName);
+        }
+    }
+
+    private async Task DeleteExcelFile()
+    {
+        if (!string.IsNullOrEmpty(currentExcelFileName) && !string.IsNullOrEmpty(selectedProjectName))
+        {
+            await reportService.DeleteExcelFileByProject(selectedProjectName);
+            currentExcelFileName = null;
+        }
+    }
+
+    private async Task OpenExcelFile()
+    {
+        if (!string.IsNullOrEmpty(currentExcelFileName) && !string.IsNullOrEmpty(selectedProjectName))
+        {
+            var fileContent = await reportService.GetExcelFileByProject(selectedProjectName);
+            var base64 = Convert.ToBase64String(fileContent);
+            var fileUrl = $"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{base64}";
+            await JSRuntime.InvokeVoidAsync("window.open", fileUrl);
+        }
+    }
+}

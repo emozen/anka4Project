@@ -1,0 +1,66 @@
+﻿@* 
+@using SimurgWeb.Pages
+@using SimurgWeb.Services
+@inject AuthService AuthService
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        @if (AuthService.IsLoggedIn)
+        {
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        }
+        else
+        {
+            <Login />
+        }
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router> *@
+
+@using SimurgWeb.Pages
+@using SimurgWeb.Services
+@inject AuthService AuthService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        @if (IsAuthenticated)
+        {
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        }
+        else
+        {
+            <Login />
+        }
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <p role="alert">Sorry, there's nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private bool IsAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Kullanıcının yetkili olup olmadığını kontrol et
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        IsAuthenticated = authState.User.Identity.IsAuthenticated;
+
+        // Oturum durumu kontrol ediliyor
+        if (!IsAuthenticated && !NavigationManager.Uri.EndsWith("/login"))
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+}
