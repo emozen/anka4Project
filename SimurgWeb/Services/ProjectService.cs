@@ -17,38 +17,54 @@ namespace SimurgWeb.Services
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly SimurgContext _dbContext;
+        private static SemaphoreSlim _searchSemaphore = new SemaphoreSlim(1, 1); // Aynı anda 1 işlem
+
         public ProjectService(SimurgContext dbContext, IHttpContextAccessor httpContextAccessor)
         {
             _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
         }
-        public List<TblProject> GetProjects(string token, bool? isActive = null, int page = 1, int pageSize = 10)
+        public async Task<List<TblProject>> GetProjectsAsync(string token, bool? isActive = null, int page = 1, int pageSize = 10, string searchTerm = "")
         {
-            var getUser = _dbContext.TblUsers.FirstOrDefault(p => p.Username == GetUserName(token));
-            if (getUser == null)
+            await _searchSemaphore.WaitAsync(); // Kilidi al
+
+            try
             {
-                throw new Exception("Kullanıcı bulunamazsa");
+                var getUser = _dbContext.TblUsers.FirstOrDefault(p => p.Username == GetUserName(token));
+                if (getUser == null)
+                {
+                    throw new Exception("Kullanıcı bulunamadı");
+                }
+
+                var query = _dbContext.TblProjects
+                    .Where(p => !p.IsDeleted.Value && _dbContext.TblProjectAuthorizes
+                        .Any(a => a.UserId == getUser.Id && a.ProjectId == p.Id));
+
+                if (!query.Any())
+                {
+                    return new List<TblProject>();
+                }
+
+                if (isActive.HasValue)
+                {
+                    query = query.Where(p => p.IsActive == isActive.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    query = query.Where(p => p.ProjectName.Contains(searchTerm));
+                }
+
+                return await query
+                    .OrderByDescending(p => p.CreatedTime)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
             }
-
-            var query = _dbContext.TblProjects
-                .Where(p => !p.IsDeleted.Value && _dbContext.TblProjectAuthorizes
-                    .Any(a => a.UserId == getUser.Id && a.ProjectId == p.Id));
-
-            if (!query.Any()) // Query boşsa
+            finally
             {
-                return new List<TblProject>(); // Boş liste döndür
+                _searchSemaphore.Release(); // Kilidi serbest bırak
             }
-
-            if (isActive.HasValue)
-            {
-                query = query.Where(p => p.IsActive == isActive.Value);
-            }
-
-            return query
-                .OrderByDescending(p => p.CreatedTime)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
         }
         public int GetProjectsCount(string token, bool? isActive = null)
         {

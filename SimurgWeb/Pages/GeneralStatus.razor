@@ -33,11 +33,11 @@
         <div class="row mb-4">
             <div class="col-md-6">
                 <label for="income" class="form-label">Gelir</label>
-                <div class="form-control" id="income">@string.Format("{0:0.00} ₺", SelectPeriods.IncomingTotalPrice)</div>
+                <div class="form-control" id="income">@($"{SelectPeriods.IncomingTotalPrice:N2} ₺")</div>
             </div>
             <div class="col-md-6">
                 <label for="expense" class="form-label">Gider</label>
-                <div class="form-control" id="expense">@string.Format("{0:0.00} ₺", SelectPeriods.ExpenceTotalPrice)</div>
+                <div class="form-control" id="expense">@($"{SelectPeriods.ExpenceTotalPrice:N2} ₺")</div>
             </div>
         </div>
 
@@ -61,7 +61,7 @@
                                 <tr>
                                     <td>@item.Description</td>
                                     <td>@item.IsIncoming</td>
-                                    <td>@string.Format("{0:0.00} ₺", item.Price)</td>
+                                    <td>@($"{item.Price:N2} ₺")</td>
                                     <td>
                                         <button class="btn btn-warning btn-sm" @onclick="() => SelectPeriodItem = item">Düzenle</button>
                                         <button class="btn btn-danger btn-sm" @onclick="() => DeleteTransaction(item)">Sil</button>

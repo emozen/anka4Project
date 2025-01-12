@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SimurgWeb")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d656164f822452dafb30de193b67337c5aafa3d5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c26c2228d38ea589a08320ba6d8b28023bf86e8b")]
 [assembly: System.Reflection.AssemblyProductAttribute("SimurgWeb")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SimurgWeb")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
