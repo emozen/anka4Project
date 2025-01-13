@@ -5,10 +5,20 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole(); // Konsola log yazdır
+builder.Logging.AddDebug(); // Debug logları
+
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddHttpContextAccessor();
+
+// Detailed errors ayarını aktif et
+builder.Services.AddServerSideBlazor().AddCircuitOptions(options =>
+{
+    options.DetailedErrors = true;
+});
 
 builder.Services.AddScoped<SimurgContext>();
 builder.Services.AddDbContext<SimurgContext>(options =>
