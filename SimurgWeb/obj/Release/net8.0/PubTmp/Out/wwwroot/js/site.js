@@ -15,3 +15,7 @@ window.bootstrapModal = {
         }
     }
 };
+
+function resetInputFile(inputElement) {
+    inputElement.value = null;
+}
