@@ -5,6 +5,8 @@
 
 @inject PeriodService _periodService
 
+@inject IJSRuntime JSRuntime
+
 <div class="container mt-4">
     <!-- Dönem Seçimi -->
     <div class="row mb-3">
@@ -38,6 +40,26 @@
             <div class="col-md-6">
                 <label for="expense" class="form-label">Gider</label>
                 <div class="form-control" id="expense">@($"{SelectPeriods.ExpenceTotalPrice:N2} ₺")</div>
+            </div>
+        </div>
+
+        <!-- Excel Dosya Yönetimi -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h5>Excel Yönetimi</h5>
+                <InputFile @ref="fileInput" OnChange="OnFileSelected" />
+                @if (!string.IsNullOrEmpty(currentExcelFileName))
+                {
+                    <div class="mt-2">
+                        <p>Yüklenen Excel Dosyası: <strong>@currentExcelFileName</strong></p>
+                        <button class="btn btn-danger btn-sm" @onclick="DeleteExcelFile">Sil</button>
+                        <button class="btn btn-primary btn-sm" @onclick="OpenExcelFile">Aç</button>
+                    </div>
+                }
+                else
+                {
+                    <p>Seçilen proje için dosya bulunamadı.</p>
+                }
             </div>
         </div>
 
@@ -109,6 +131,9 @@
     private PeriodMaster SelectPeriods = new PeriodMaster();
     private PeriodItem SelectPeriodItem = new PeriodItem();
     private int SelectPeriodId = 0;
+    public string selectedPeriodName { get; set; }
+    public string currentExcelFileName { get; set; }
+    private InputFile fileInput; // InputFile türünde referans
 
     protected override async Task OnInitializedAsync()
     {
@@ -120,6 +145,22 @@
         {
             SelectPeriodId = Periods.First().Id; // İlk dönemin ID'si
             SelectPeriods = Periods.First();     // İlk dönem
+
+            selectedPeriodName = SelectPeriods.Name;
+            try
+            {
+                var fileContent = await _periodService.GetExcelFileByProject(selectedPeriodName);
+                currentExcelFileName = $"{selectedPeriodName}.xlsx"; // Mevcut dosya
+            }
+            catch (FileNotFoundException)
+            {
+                currentExcelFileName = null; // Dosya bulunamadı
+            }
+        }
+        else
+        {
+            selectedPeriodName = null;
+            currentExcelFileName = null;
         }
     }
 
@@ -142,7 +183,7 @@
         if (SelectPeriodId > 0)
         {
             SelectPeriods = Periods.FirstOrDefault(p => p.Id == SelectPeriodId);
-            SelectPeriodItem = new PeriodItem();
+            SelectPeriodItem = new PeriodItem();            
         }
     }
 
@@ -159,8 +200,70 @@
     }
 
     // Dönem değiştiğinde işlem yapma
-    private void OnPeriodChange()
+    private async Task OnPeriodChange()
     {
         SelectPeriods = Periods.FirstOrDefault(p => p.Id == SelectPeriodId);
+        if (SelectPeriods != null)
+        {
+            var period = Periods.FirstOrDefault(p => p.Id == SelectPeriods.Id);
+            if (period != null)
+            {
+                selectedPeriodName = period.Name;
+
+                try
+                {
+                    var fileContent = await _periodService.GetExcelFileByProject(selectedPeriodName);
+                    currentExcelFileName = $"{selectedPeriodName}.xlsx"; // Mevcut dosya
+                }
+                catch (FileNotFoundException)
+                {
+                    currentExcelFileName = null; // Dosya bulunamadı
+                }
+            }
+            else
+            {
+                selectedPeriodName = null;
+                currentExcelFileName = null;
+            }
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null && !string.IsNullOrEmpty(selectedPeriodName))
+        {
+            currentExcelFileName = file.Name;
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10 MB sınır
+            await _periodService.UploadExcelFileToProject(stream, file.Name, selectedPeriodName);
+        }
+
+        // Dosya yüklendikten sonra inputu sıfırla
+        await ResetFileInput();
+    }
+
+    private async Task ResetFileInput()
+    {
+        await JSRuntime.InvokeVoidAsync("resetInputFile", fileInput.Element);
+    }
+
+    private async Task DeleteExcelFile()
+    {
+        if (!string.IsNullOrEmpty(currentExcelFileName) && !string.IsNullOrEmpty(selectedPeriodName))
+        {
+            await _periodService.DeleteExcelFileByProject(selectedPeriodName);
+            currentExcelFileName = null;
+        }
+    }
+
+    private async Task OpenExcelFile()
+    {
+        if (!string.IsNullOrEmpty(currentExcelFileName) && !string.IsNullOrEmpty(selectedPeriodName))
+        {
+            var fileContent = await _periodService.GetExcelFileByProject(selectedPeriodName);
+            var base64 = Convert.ToBase64String(fileContent);
+            var fileUrl = $"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{base64}";
+            await JSRuntime.InvokeVoidAsync("window.open", fileUrl);
+        }
     }
 }

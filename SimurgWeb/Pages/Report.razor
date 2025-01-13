@@ -4,7 +4,6 @@
 @inject ReportService reportService
 @inject NavigationManager NavigationManager
 @using Microsoft.AspNetCore.Components.Forms
-@inject IJSRuntime JSRuntime
 
 <div class="container my-4">
     <!-- Üst Kısım -->
@@ -33,26 +32,6 @@
         </div>
         <div class="col-md-4 text-end">
             <button class="btn btn-primary" @onclick="GenerateReport">Raporla</button>
-        </div>
-    </div>
-
-    <!-- Excel Dosya Yönetimi -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h5>Excel Yönetimi</h5>
-            <InputFile OnChange="OnFileSelected" />
-            @if (!string.IsNullOrEmpty(currentExcelFileName))
-            {
-                <div class="mt-2">
-                    <p>Yüklenen Excel Dosyası: <strong>@currentExcelFileName</strong></p>
-                    <button class="btn btn-danger btn-sm" @onclick="DeleteExcelFile">Sil</button>
-                    <button class="btn btn-primary btn-sm" @onclick="OpenExcelFile">Aç</button>
-                </div>
-            }
-            else
-            {
-                <p>Seçilen proje için dosya bulunamadı.</p>
-            }
         </div>
     </div>
 
@@ -90,10 +69,8 @@
     public List<ProjectList> projectList { get; set; } = new();
     public List<IncomeExpenseItems> incomeExpenseItemList { get; set; } = new();
     public int selectedProject { get; set; }
-    public string selectedProjectName { get; set; }
     public bool isExpense = false;
-    public decimal totalAmount = 0M;
-    public string currentExcelFileName { get; set; }
+    public decimal totalAmount = 0M;    
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,27 +82,6 @@
         // Proje değiştiğinde dosya ve listeyi sıfırla
         incomeExpenseItemList.Clear();
         totalAmount = 0M;
-
-        var project = projectList.FirstOrDefault(p => p.Id == selectedProject);
-        if (project != null)
-        {
-            selectedProjectName = project.ProjectName;
-
-            try
-            {
-                var fileContent = await reportService.GetExcelFileByProject(selectedProjectName);
-                currentExcelFileName = $"{selectedProjectName}.xlsx"; // Mevcut dosya
-            }
-            catch (FileNotFoundException)
-            {
-                currentExcelFileName = null; // Dosya bulunamadı
-            }
-        }
-        else
-        {
-            selectedProjectName = null;
-            currentExcelFileName = null;
-        }
     }
 
     private async Task SetIncomeExpense(ChangeEventArgs e)
@@ -139,36 +95,5 @@
         // Raporu yükle
         incomeExpenseItemList = await reportService.GetIncomeExpenseList(isExpense, selectedProject);
         totalAmount = reportService.GetTotalAmount(incomeExpenseItemList);
-    }
-
-    private async Task OnFileSelected(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        if (file != null && !string.IsNullOrEmpty(selectedProjectName))
-        {
-            currentExcelFileName = file.Name;
-            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10 MB sınır
-            await reportService.UploadExcelFileToProject(stream, file.Name, selectedProjectName);
-        }
-    }
-
-    private async Task DeleteExcelFile()
-    {
-        if (!string.IsNullOrEmpty(currentExcelFileName) && !string.IsNullOrEmpty(selectedProjectName))
-        {
-            await reportService.DeleteExcelFileByProject(selectedProjectName);
-            currentExcelFileName = null;
-        }
-    }
-
-    private async Task OpenExcelFile()
-    {
-        if (!string.IsNullOrEmpty(currentExcelFileName) && !string.IsNullOrEmpty(selectedProjectName))
-        {
-            var fileContent = await reportService.GetExcelFileByProject(selectedProjectName);
-            var base64 = Convert.ToBase64String(fileContent);
-            var fileUrl = $"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{base64}";
-            await JSRuntime.InvokeVoidAsync("window.open", fileUrl);
-        }
-    }
+    }   
 }
