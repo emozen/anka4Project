@@ -9,3 +9,5 @@ obj/
 # User-specific files
 *.user
 *.vs
+/SimurgWeb/obj/Debug/net8.0/SimurgWeb.AssemblyInfoInputs.cache
+/SimurgWeb/obj/Debug/net8.0/SimurgWeb.AssemblyInfo.cs
