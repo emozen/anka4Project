@@ -9,15 +9,31 @@ obj/
 # User-specific files
 *.user
 *.vs
-/SimurgWeb/obj/Debug/net8.0/SimurgWeb.AssemblyInfoInputs.cache
-/SimurgWeb/obj/Debug/net8.0/SimurgWeb.AssemblyInfo.cs
-SimurgWeb/bin/Debug/net8.0/SimurgWeb.dll
-SimurgWeb/bin/Debug/net8.0/SimurgWeb.dll
-SimurgWeb/bin/Debug/net8.0/SimurgWeb.exe
-SimurgWeb/bin/Debug/net8.0/SimurgWeb.pdb
-SimurgWeb/obj/Debug/net8.0/apphost.exe
-SimurgWeb/obj/Debug/net8.0/ref/SimurgWeb.dll
-SimurgWeb/obj/Debug/net8.0/refint/SimurgWeb.dll
-SimurgWeb/obj/Debug/net8.0/SimurgWeb.dll
-SimurgWeb/obj/Debug/net8.0/SimurgWeb.pdb
+
+# Visual Studio ve .NET
+.vs/
+*.user
+*.suo
+*.csproj.user
+bin/
+obj/
+TestResults/
+*.log
+
+# Publish çıktıları
+publish/
+*.pubxml
+*.publishsettings
+
+# Paketleme ve Geri Yükleme
+*.nupkg
+*.snupkg
+packages/
 *.dll
+*.exe
+
+# Diğer
+!.gitignore
+*.tmp
+*.bak
+*.swp
