@@ -20,49 +20,60 @@ else if (Project == null)
 }
 else
 {
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <!-- Tarih ve Kullanıcı Adı Kutuları -->
-        <div class="d-flex align-items-center" style="gap: 10px;">
-            <!-- Başlık Alanı -->
-            <div style="max-width: 250px;">
-                <h4 class="fw-bold mb-0">Proje Detay</h4>
-            </div>
-            @if (ProjectId > 0)
-            {
-                <!-- Kullanıcı Adı Kutusu -->
-                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff;">
-                    <label class="form-label mb-1" style="font-size: 0.9rem; font-weight:bold;">Oluşturan</label>
-                    <div style="font-size: 0.85rem; font-weight: 500;">@Project.CreatedBy</div>
-                </div>
-
-                <!-- Tarih Kutusu -->
-                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff;">
-                    <label class="form-label mb-1" style="font-size: 0.9rem; font-weight:bold;">Tarih</label>
-                    <div style="font-size: 0.85rem; font-weight: 500;">@Project.CreatedDate.ToString("dd.MM.yyyy")</div>
-                </div>
-                <!-- Tarih Kutusu -->
-                <div class="border rounded p-2 text-center" style="@(Project.IsActive ? "background-color: #ffffcc;" : "background-color: #ccffcc;")">
-                    <label class="form-label mb-1" style="font-size: 0.9rem; font-weight:bold;">Durumu</label>
-                    <div style="font-size: 0.85rem; font-weight: 500;">@(Project.IsActive ? "Devam Ediyor" : "Tamamlandı")</div>
-                </div>
-                
-                @if (Project.IsActive)
-                {
-                    <div class="border rounded p-2 text-center" style="@(Project.IsActive ? "background-color: #f0f8ff;" : "background-color: #ccffcc;")">
-                        <button class="btn btn-primary mt-2" @onclick="ProjeClose">
-                            Projeyi Bitir
-                        </button>
-                    </div>
-                }
-
-                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff">
-                    <button class="btn btn-secondary" @onclick="ToggleDetails">Notlar</button>
-                </div>
-                <div class="border rounded p-2 text-center" style="background-color: #f0f8ff">
-                    <button class="btn btn-secondary" @onclick="OpenUserModal">Yetkiler</button>
-                </div>
-            }
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <!-- Başlık Alanı -->
+        <div class="col-12 col-md-auto">
+            <h4 class="fw-bold mb-0">Proje Detay</h4>
         </div>
+
+        @if (ProjectId > 0)
+        {
+            <div class="d-flex flex-wrap gap-2">
+                <!-- Kullanıcı Adı Kutusu -->
+                <div class="border rounded p-2 text-center bg-light">
+                    <label class="form-label mb-1 fw-bold">Oluşturan</label>
+                    <div class="small">@Project.CreatedBy</div>
+                </div>
+
+                <!-- Tarih Kutusu -->
+                <div class="border rounded p-2 text-center bg-light">
+                    <label class="form-label mb-1 fw-bold">Tarih</label>
+                    <div class="small">@Project.CreatedDate.ToString("dd.MM.yyyy")</div>
+                </div>
+
+                <!-- Durum Kutusu -->
+                <div class="border rounded p-2 text-center" style="@(Project.IsActive ? "background-color: #ffffcc;" : "background-color: #ccffcc;")">
+                    <label class="form-label mb-1 fw-bold">Durumu</label>
+                    <div class="small">@(Project.IsActive ? "Devam Ediyor" : "Tamamlandı")</div>
+                </div>
+
+                <!-- Başlama ve Bitiş Zamanı Kutuları -->
+                <div class="border rounded p-2 text-center bg-light">
+                    <label class="form-label mb-1 fw-bold">Başlama Zamanı</label>
+                    <InputDate id="startDate" class="form-control" @bind-Value="Project.StartDate" />
+                </div>
+
+                <div class="border rounded p-2 text-center bg-light">
+                    <label class="form-label mb-1 fw-bold">Bitiş Zamanı</label>
+                    <InputDate id="endDate" class="form-control" @bind-Value="Project.EndDate" />
+                </div>
+
+                <!-- 3 Noktalı Buton (Dropdown Menü) -->
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        &#x22EE;
+                    </button>
+                    <ul class="dropdown-menu custom-dropdown" aria-labelledby="dropdownMenuButton">
+                        @if (Project.IsActive)
+                        {
+                            <li><a class="dropdown-item fw-bold" @onclick="ProjeClose">✅ Projeyi Bitir</a></li>
+                        }
+                        <li><a class="dropdown-item fw-bold" @onclick="ToggleDetails">📝 Notlar</a></li>
+                        <li><a class="dropdown-item fw-bold" @onclick="OpenUserModal">🔑 Yetkiler</a></li>
+                    </ul>
+                </div>
+            </div>
+        }
     </div>
 
     @if (ShowUserModal)
@@ -84,7 +95,7 @@ else
                         }
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" @onclick="SaveUserPermissions">Kaydet</button>
+                        <button type="button" class="btn btn-primary" @onclick="SaveUserPermissions">Kaydet</button>                        
                         <button type="button" class="btn btn-secondary" @onclick="CloseUserModal">Kapat</button>
                     </div>
                 </div>
@@ -101,19 +112,46 @@ else
         }
     </div>
 
+    @* <EditForm Model="@Project" OnValidSubmit="SaveProject">
+        <!-- Proje Adı ve Butonlar Yan Yana -->
+        <div class="d-flex gap-2 mb-3 align-items-center">
+            <InputText style="width: 200px;" id="customerName" class="form-control" @bind-Value="Project.CustomerName" readonly />
+            <InputText id="projectName" class="form-control" @bind-Value="Project.ProjectName" placeholder="Proje adını giriniz" />
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <button type="button" class="btn btn-secondary" @onclick="PageBack">Geri</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Sil</button>
+        </div>
+    </EditForm> *@
+
     <EditForm Model="@Project" OnValidSubmit="SaveProject">
         <!-- Proje Adı ve Butonlar Yan Yana -->
         <div class="d-flex gap-2 mb-3 align-items-center">
-            @if (Project.IsActive || ProjectId == 0)
-            {
-                <InputText id="projectName" class="form-control" @bind-Value="Project.ProjectName" placeholder="Proje adını giriniz" />
-                <button type="submit" class="btn btn-primary">Kaydet</button>
-            }
-            else
-            {
-                <InputText id="projectName" class="form-control" @bind-Value="Project.ProjectName" placeholder="Proje adını giriniz" readonly />
-            }
-            <button type="button" class="btn btn-secondary" @onclick="Cancel">Geri</button>
+            <div class="position-relative" style="width: 300px;">
+                <!-- Giriş Alanı -->
+                <InputText class="form-control"
+                           placeholder="Müşteri adı giriniz..."
+                           @bind-Value="Project.CustomerName"
+                           @oninput="e => FilterCustomers(e.Value?.ToString())" />
+
+                <!-- Öneriler Listesi -->
+                @if (FilteredCustomers.Any())
+                {
+                    <ul class="list-group suggestion-list">
+                        @foreach (var customer in FilteredCustomers)
+                        {
+                            <li class="list-group-item list-group-item-action"
+                                @onclick="() => SelectCustomer(customer)">
+                                @customer.CustomerName
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <InputText id="projectName" class="form-control" @bind-Value="Project.ProjectName" placeholder="Proje adını giriniz" />
+            <button type="submit" class="btn btn-primary">Kaydet</button>
+            <button type="button" class="btn btn-secondary" @onclick="PageBack">Geri</button>
+            <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Sil</button>
         </div>
     </EditForm>
 
@@ -210,7 +248,7 @@ else
                                 {
                                     <tr>
                                         <td>@income.Description</td>
-                                        <td>@string.Format("{0:0.00} ₺", income.Amount)</td>
+                                        <td>@($"{income.Amount:N2} ₺")</td>
                                         <td>
                                             @if (income.IsFile)
                                             {
@@ -260,6 +298,24 @@ else
     }
 }
 
+<div aria-live="polite" aria-atomic="true" class="position-relative toast-container">
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        @if (ShowToast)
+        {
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">@ToastTitle</strong>
+                    <button type="button" class="btn-close" @onclick="HideToast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body" style="color: white; background-color: @ToastBackgroundColor;">
+                    @ToastMessage
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
 <script>
     window.openImageInNewTab = function (imageDataUrl) {
         var newWindow = window.open();
@@ -272,6 +328,42 @@ else
 </script>
 
 @code {
+    #region Message
+    private bool ShowToast = false;
+    private string ToastTitle = string.Empty;
+    private string ToastMessage = string.Empty;
+    private string ToastBackgroundColor = "green"; // Varsayılan başarılı için yeşil
+
+    private void ShowSuccessToast(string message)
+    {
+        ToastTitle = "Başarılı!";
+        ToastMessage = message;
+        ToastBackgroundColor = "green";
+        ShowToastNotification();
+    }
+
+    private void ShowErrorToast(string message)
+    {
+        ToastTitle = "Hata!";
+        ToastMessage = message;
+        ToastBackgroundColor = "red";
+        ShowToastNotification();
+    }
+    private async void ShowToastNotification()
+    {
+        ShowToast = true;
+        StateHasChanged(); // UI'yi yenile
+        await Task.Delay(3000); // 3 saniye bekle
+        HideToast(); // Toast'u gizle
+    }
+
+    private void HideToast()
+    {
+        ShowToast = false;
+        StateHasChanged(); // UI'yi yenile
+    }
+    #endregion
+
     private bool ShowUserModal = false;
     private List<ProjectAuthorizeUser> Users = new();
 
@@ -297,9 +389,7 @@ else
         ShowUserModal = false;
     }
 
-
-    //---------------------------
-
+    #region ProjeNotlari
     private bool ShowDetails = false;
 
     private void ToggleDetails()
@@ -311,10 +401,11 @@ else
     {
         ShowDetails = false;
     }
+    #endregion
 
-    //------------------------------------
     [Parameter]
     public int ProjectId { get; set; }
+    public List<TblCustomer> Customers { get; set; } = new List<TblCustomer>();
     public List<Expense> Expenses { get; set; } = new List<Expense>();
     public List<Income> Incomes { get; set; } = new List<Income>();
 
@@ -384,6 +475,14 @@ else
         NavigationManager.NavigateTo("/"); // İptal edilirse listeye yönlendir
     }
 
+    // Örnek müşteri verisi
+    private async Task<List<TblCustomer>> GetCustomers()
+    {
+        var token = await GetTokenAsync();
+        Customers = await ProjectService.GetCustomerList(token);
+
+        return Customers;
+    }
     //----------------------
 
     private string ButtonText;
@@ -401,6 +500,7 @@ else
             Project = await ProjectService.GetProjectByIdAsync(token,ProjectId); // Servisten proje verilerini çek
             Expenses = await ProjectService.GetExpenseList(token,ProjectId);
             Incomes = await ProjectService.GetIncomeList(token,ProjectId);
+            Customers = await GetCustomers();
 
             incomesTotal = Incomes.Sum(p => p.Amount);
             expenseTotal = Expenses.Sum(p => p.Amount);
@@ -422,17 +522,46 @@ else
             // Proje güncelleme işlemi
             var token = await GetTokenAsync();
             await ProjectService.UpdateProjectAsync(token, Project);
-            NavigationManager.NavigateTo("/"); // Kaydetmeden sonra listeye yönlendir
+            //NavigationManager.NavigateTo("/"); // Kaydetmeden sonra listeye yönlendir
+            StateHasChanged();
+
+            ShowSuccessToast("Güncelleme başarılı");
+        }
+        catch (Exception ex)
+        {
+            ShowErrorToast("Güncelleme başarısız");
+            Console.WriteLine($"Hata: {ex.Message}");
+        }
+    }
+
+    private void PageBack()
+    {
+        NavigationManager.NavigateTo("/"); // İptal edilirse listeye yönlendir
+    }
+
+    private async Task ConfirmDelete()
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Bu öğeyi silmek istediğinizden emin misiniz?");
+        if (confirmed)
+        {
+            await ProjectDelete(); // Silme işlemi gerçekleşiyor
+            NavigationManager.NavigateTo("/");
+        }
+    }
+
+    private async Task ProjectDelete()
+    {
+        try
+        {
+            // Silme işlemini burada yap
+            var token = await GetTokenAsync();
+            var res = await ProjectService.DeleteProjectAsync(token, ProjectId);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Hata: {ex.Message}");
         }
-    }
 
-    private void Cancel()
-    {
-        NavigationManager.NavigateTo("/"); // İptal edilirse listeye yönlendir
     }
 
     private async Task<string> GetTokenAsync()
@@ -453,34 +582,68 @@ else
         }
     }
 
-    public class ProjectDetailModel
+    #region Autocomplite
+    private string? SearchTerm { get; set; } = "";
+    private List<TblCustomer> FilteredCustomers { get; set; } = new();
+    private TblCustomer? SelectedCustomer { get; set; }
+
+    // Filtreleme işlemi
+    // Arama Yap ve Listeyi Güncelle
+    private void FilterCustomers(string? searchTerm)
     {
-        public int Id { get; set; }
-        public string ProjectName { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public string CreatedBy { get; set; }
-        public bool IsActive { get; set; }
-        public string? Explanation { get; set; }
+        SearchTerm = searchTerm;
+
+        if (string.IsNullOrWhiteSpace(SearchTerm))
+        {
+            FilteredCustomers.Clear(); // Arama boşsa listeyi temizle
+        }
+        else
+        {
+            // Arama metnine göre filtrele
+            FilteredCustomers = Customers
+                .Where(c => c.CustomerName
+                    .Contains(SearchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
     }
 
-    public class Income
+    // Müşteri Seçimi
+    private void SelectCustomer(TblCustomer customer)
     {
-        public int Id { get; set; }
-        public string Description { get; set; }
-        public decimal Amount { get; set; }
-        public IBrowserFile File { get; set; } // Dosya alanı eklendi
-        public byte[]? AddedFile { get; set; }
-        public bool IsFile { get; set; }
+        Project.CustomerId = customer.Id;
+        Project.CustomerName = customer.CustomerName;
+        SelectedCustomer = customer;
+        SearchTerm = customer.CustomerName; // Input'u seçili müşteriyle doldur
+        FilteredCustomers.Clear(); // Listeyi temizle
     }
-
-    public class Expense
-    {
-        public int Id { get; set; }
-        public string Description { get; set; }
-        public decimal Amount { get; set; }
-        public IBrowserFile File { get; set; } // Dosya alanı eklendi
-        public byte[]? AddedFile { get; set; }
-        public bool IsFile { get; set; }
-    }
+    #endregion
 }
  
+
+<style>
+    .suggestion-list {
+        position: absolute; /* Liste inputun hemen altında konumlanır */
+        top: calc(100% + 4px); /* Inputun altına biraz boşluk ekler */
+        left: 0; /* Inputun sol kenarına hizalanır */
+        width: 100%; /* Input genişliği ile aynı genişlikte olur */
+        max-height: 200px; /* Maksimum yükseklik belirlenir */
+        overflow-y: auto; /* Dikey kaydırma etkinleştirilir */
+        background-color: white; /* Beyaz arka plan */
+        border: 1px solid #ccc; /* İnce kenarlık */
+        border-radius: 4px; /* Kenarlar yuvarlatılır */
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Hafif bir gölge eklenir */
+        z-index: 1050; /* Listenin diğer elemanların üstünde görünmesini sağlar */
+        padding: 0; /* İçerideki gereksiz boşlukları kaldırır */
+        margin: 0; /* Dış boşlukları sıfırlar */
+        list-style-type: none; /* Madde işaretlerini kaldırır */
+    }
+
+    .suggestion-list li {
+        padding: 8px 12px; /* Listedeki her bir öğe için iç boşluk */
+        cursor: pointer; /* Mouse imlecini el işaretine çevirir */
+    }
+
+    .suggestion-list li:hover {
+        background-color: #f1f1f1; /* Üzerine gelindiğinde açık gri bir renk */
+    }
+</style>

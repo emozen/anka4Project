@@ -15,6 +15,8 @@ public partial class SimurgContext : DbContext
     {
     }
 
+    public virtual DbSet<TblCustomer> TblCustomers { get; set; }
+
     public virtual DbSet<TblItem> TblItems { get; set; }
 
     public virtual DbSet<TblLog> TblLogs { get; set; }
@@ -31,6 +33,14 @@ public partial class SimurgContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<TblCustomer>(entity =>
+        {
+            entity.ToTable("Tbl_Customers");
+
+            entity.Property(e => e.CustomerName).HasMaxLength(250);
+            entity.Property(e => e.DeletedTime).HasColumnType("datetime");
+        });
+
         modelBuilder.Entity<TblItem>(entity =>
         {
             entity.ToTable("Tbl_Items");
@@ -99,13 +109,19 @@ public partial class SimurgContext : DbContext
             entity.Property(e => e.CreatedTime)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.EndDatetime).HasColumnType("datetime");
             entity.Property(e => e.IsDeleted).HasDefaultValue(false);
             entity.Property(e => e.ProjectName).HasMaxLength(250);
+            entity.Property(e => e.StartDatetime).HasColumnType("datetime");
 
             entity.HasOne(d => d.CreatedUser).WithMany(p => p.TblProjects)
                 .HasForeignKey(d => d.CreatedUserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Tbl_Projects_Tbl_Users");
+
+            entity.HasOne(d => d.Customer).WithMany(p => p.TblProjects)
+                .HasForeignKey(d => d.CustomerId)
+                .HasConstraintName("FK_Tbl_Projects_Tbl_Customers");
         });
 
         modelBuilder.Entity<TblProjectAuthorize>(entity =>

@@ -19,7 +19,15 @@ public partial class TblProject
 
     public bool? IsDeleted { get; set; }
 
+    public DateTime? StartDatetime { get; set; }
+
+    public DateTime? EndDatetime { get; set; }
+
+    public int? CustomerId { get; set; }
+
     public virtual TblUser CreatedUser { get; set; } = null!;
+
+    public virtual TblCustomer? Customer { get; set; }
 
     public virtual ICollection<TblItem> TblItems { get; set; } = new List<TblItem>();
 

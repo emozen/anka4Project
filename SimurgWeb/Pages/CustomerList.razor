@@ -1,42 +1,36 @@
 ﻿@attribute [Authorize]
-@page "/userlist"
+@page "/customerList"
+
 @using System.Collections.Generic
 @using SimurgWeb.Services
 
-@inject UserService userService
+@inject CustomerService customerService
 @inject NavigationManager NavigationManager
 
 @inject IJSRuntime JSRuntime
 
 <div class="d-flex justify-content-between align-items-center">
-    <h3>Kullanıcı Listesi</h3>
-    <button class="btn btn-success" @onclick="OpenNewModal">Yeni Kullanıcı Ekle</button>
+    <h3>Müşteri Listesi</h3>
+    <button class="btn btn-success" @onclick="OpenNewModal">Yeni Müşteri Ekle</button>
 </div>
 
 <table class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
-            <th>Kullanıcı</th>
-            <th>Şifre</th>
-            <th>Durum</th>
+            <th>Müşteri</th>
             <th>İşlemler</th>
         </tr>
     </thead>
     <tbody>
-        @foreach (var user in userItems)
+        @foreach (var item in customerItems)
         {
             <tr>
-                <td>@user.Id</td>
-                <td>@user.Username</td>
-                <td>@user.Password</td>
+                <td>@item.Id</td>
+                <td>@item.CustomerName</td>
                 <td>
-                    <i class="bi @(user.IsActive ? "oi oi-circle-check" : "oi oi-circle-x")"
-                       title="@(user.IsActive ? "Aktif" : "Pasif")"
-                       style="color: @(user.IsActive ? "green" : "red"); font-size: 1.2em;"></i>
-                </td>
-                <td>
-                    <button class="btn btn-primary btn-sm" @onclick="(() => OpenModal(user))">Düzenle</button>
+                    <button class="btn btn-primary btn-sm" @onclick="(() => OpenModal(item))">Düzenle</button>
+                    <button class="btn btn-danger btn-sm ms-2" @onclick="(() => ConfirmDelete(item))">Sil</button>
                 </td>
             </tr>
         }
@@ -48,21 +42,13 @@
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Kullanıcı Düzenle</h5>
+                <h5 class="modal-title">Müşteri Düzenle</h5>
                 <button type="button" class="btn-close" @onclick="CloseModal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label for="username" class="form-label">Kullanıcı Adı</label>
-                    <input type="text" class="form-control" id="username" @bind="SelectedUser.Username" />
-                </div>
-                <div class="mb-3">
-                    <label for="password" class="form-label">Şifre</label>
-                    <input type="password" class="form-control" id="password" @bind="SelectedUser.Password" />
-                </div>
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="isActive" @bind="SelectedUser.IsActive" />
-                    <label class="form-check-label" for="isActive">Aktif mi?</label>
+                    <label for="customerName" class="form-label">Müşteri Adı</label>
+                    <input type="text" class="form-control" id="customerName" @bind="SelectedCustomer.CustomerName" />
                 </div>
             </div>
             <div class="modal-footer">
@@ -99,27 +85,28 @@
 
 @code {
 
-    private List<UserItem> userItems = new List<UserItem>();
+    private List<CustomerItem> customerItems = new List<CustomerItem>();
 
-    private UserItem SelectedUser = new UserItem();
+    private CustomerItem SelectedCustomer = new CustomerItem();
     private bool IsModalOpen = false;
     private string ModalClass => IsModalOpen ? "show d-block" : "d-none";
+    private CustomerItem? customerToDelete;
 
     protected override async Task OnInitializedAsync()
     {
         var token = await GetTokenAsync();
-        userItems = await userService.GetUserList(token);
+        customerItems = await customerService.GetCustomerList(token);
     }
 
-    private void OpenModal(UserItem user)
+    private void OpenModal(CustomerItem item)
     {
-        SelectedUser = user;
+        SelectedCustomer = item;
         IsModalOpen = true;
     }
 
     private void OpenNewModal()
     {
-        SelectedUser = new UserItem();
+        SelectedCustomer = new CustomerItem();
         IsModalOpen = true;
     }
 
@@ -135,18 +122,18 @@
         try
         {
             var token = await GetTokenAsync();
-            var res = await userService.AddOrUpdateUser(token, SelectedUser);
-            var isNewUser = false;
-            if (SelectedUser.Id == 0)
+            var res = await customerService.AddOrUpdateCustomer(token, SelectedCustomer);
+            var isNewCustomer = false;
+            if (SelectedCustomer.Id == 0)
             {
-                isNewUser = true;
+                isNewCustomer = true;
             }
-            userItems = await userService.GetUserList(token);
+            customerItems = await customerService.GetCustomerList(token);
             if (res)
             {
-                if (isNewUser)
+                if (isNewCustomer)
                 {
-                    ShowSuccessToast("Kullanıcı eklendi");
+                    ShowSuccessToast("Müşteri eklendi");
                 }
                 else
                 {
@@ -162,6 +149,40 @@
         {
             ShowErrorToast("Hata : " + ex.Message);
         }        
+    }
+
+    private async Task DeleteCustomer()
+    {
+        // Simulate save operation
+        CloseModal();
+        try
+        {
+            var token = await GetTokenAsync();
+            var res = await customerService.DeleteCustomer(token, customerToDelete.Id);
+            customerItems = await customerService.GetCustomerList(token);
+            if (res)
+            {
+                ShowSuccessToast("Müşteri silindi");
+            }
+            else
+            {
+                ShowErrorToast("Bilgileri kontrol ediniz.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowErrorToast("Hata : " + ex.Message);
+        }
+    }
+
+    private async Task ConfirmDelete(CustomerItem item)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Müşteri '{item.CustomerName}' silinecek. Emin misiniz?");
+        if (confirmed)
+        {
+            customerToDelete = item;
+            await DeleteCustomer();
+        }
     }
 
     private async Task<string> GetTokenAsync()
@@ -205,13 +226,4 @@
         StateHasChanged(); // UI'yi yenile
     }
     #endregion
-
-
-    // private class User
-    // {
-    //     public int Id { get; set; }
-    //     public string Username { get; set; }
-    //     public string Password { get; set; }
-    //     public bool IsActive { get; set; }
-    // }
 }

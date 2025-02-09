@@ -17,12 +17,15 @@ namespace SimurgWeb.Services
             return await _dbContext.TblProjects.Select(p => new ProjectList { Id = p.Id, ProjectName = p.ProjectName }).ToListAsync();
         }
 
-        public async Task<List<IncomeExpenseItems>> GetIncomeExpenseList(bool isExpense, int projectId)
+        public async Task<List<IncomeExpenseItems>> GetIncomeExpenseList(bool? isExpense, int projectId)
         {
-            return await _dbContext.TblItems
-                .Where(p => p.ProjectId == projectId && p.IsActive && p.IsExpenses == isExpense)
-                .Select(p => new IncomeExpenseItems { Description = p.Definition, Amount = p.Price })
-                .ToListAsync();
+            var res = _dbContext.TblItems.Where(p => p.ProjectId == projectId && p.IsActive);
+            if (isExpense.HasValue)
+            {
+                res = res.Where(p => p.IsExpenses == isExpense);
+            }
+
+            return await res.Select(p => new IncomeExpenseItems { Description = p.Definition, Amount = p.Price }).ToListAsync();
         }
 
         public decimal GetTotalAmount(List<IncomeExpenseItems> list)

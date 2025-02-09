@@ -1,4 +1,5 @@
-﻿using Microsoft.Build.Evaluation;
+﻿using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Build.Evaluation;
 using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
@@ -24,7 +25,7 @@ namespace SimurgWeb.Services
             _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
         }
-        public async Task<List<TblProject>> GetProjectsAsync(string token, bool? isActive = null, int page = 1, int pageSize = 10, string searchTerm = "")
+        public async Task<List<TblProject>> GetProjectsAsync(string token, bool? isActive = null, int page = 1, int pageSize = 10, DateTime? startDate = null, DateTime? endDate = null, string searchTerm = "")
         {
             await _searchSemaphore.WaitAsync(); // Kilidi al
 
@@ -55,7 +56,18 @@ namespace SimurgWeb.Services
                     query = query.Where(p => p.ProjectName.Contains(searchTerm));
                 }
 
+                if (startDate != null)
+                {
+                    query = query.Where(p => p.StartDatetime >= startDate);
+                }
+
+                if (endDate != null)
+                {
+                    query = query.Where(p => p.EndDatetime <= endDate);
+                }
+
                 return await query
+                    .Include(p=>p.Customer)
                     .OrderByDescending(p => p.CreatedTime)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
@@ -99,6 +111,7 @@ namespace SimurgWeb.Services
 
             var res = await _dbContext.TblProjects
                 .Include(p => p.CreatedUser)
+                .Include(p=>p.Customer)
                 .Where(p => p.Id == projectId && _dbContext.TblProjectAuthorizes
                     .Any(a => a.UserId == getUser.Id && a.ProjectId == p.Id))
                 .Select(p => new ProjectDetailModel
@@ -108,7 +121,11 @@ namespace SimurgWeb.Services
                     CreatedBy = p.CreatedUser.Username,
                     CreatedDate = p.CreatedTime,
                     IsActive = p.IsActive,
-                    Explanation = p.Explanation
+                    Explanation = p.Explanation,
+                    CustomerName = p.Customer == null ? "" : p.Customer.CustomerName,
+                    CustomerId = p.Customer == null ? null : p.Customer.Id,
+                    StartDate = p.StartDatetime,
+                    EndDate = p.EndDatetime
                 })
                 .FirstOrDefaultAsync();
 
@@ -122,8 +139,11 @@ namespace SimurgWeb.Services
                 var getUserId = _dbContext.TblUsers.FirstOrDefault(p => p.Username == GetUserName(token));
                 var addItem = new TblProject();
                 addItem.ProjectName = project.ProjectName;
+                addItem.StartDatetime = project.StartDate;
+                addItem.EndDatetime = project.EndDate;
                 addItem.IsActive = true;                
                 addItem.CreatedUserId = getUserId.Id;
+                addItem.CustomerId = project.CustomerId;
                 _dbContext.TblProjects.Add(addItem);
                 _dbContext.SaveChanges();
 
@@ -148,10 +168,29 @@ namespace SimurgWeb.Services
                 }
                 update.ProjectName = project.ProjectName;
                 update.Explanation = project.Explanation;
+                update.StartDatetime = project.StartDate;
+                update.EndDatetime = project.EndDate;
+                update.CustomerId = project.CustomerId;
                 _dbContext.TblProjects.Update(update);
                 _dbContext.SaveChanges();                
             }
             return project;
+        }
+        public async Task<bool> DeleteProjectAsync(string token, int projectId)
+        {
+            var getUser = await _dbContext.TblUsers.FirstOrDefaultAsync(p => p.Username == GetUserName(token));
+            //var authorizedProjectIds = _dbContext.TblProjectAuthorizes.Where(p => p.UserId == getUser.Id).Select(p => p.ProjectId).ToList();
+
+            var update = await _dbContext.TblProjects.FirstOrDefaultAsync(p => p.Id == projectId && _dbContext.TblProjectAuthorizes.Any(a => a.UserId == getUser.Id && a.ProjectId == p.Id));
+            if (update == null)
+            {
+                throw new Exception("Ekleme işlemi başarısız");
+            }
+            update.IsDeleted = true;
+            _dbContext.TblProjects.Update(update);
+            await _dbContext.SaveChangesAsync();
+
+            return true;
         }
         public async Task<List<Expense>> GetExpenseList(string token, int projectId)
         {
@@ -198,6 +237,10 @@ namespace SimurgWeb.Services
                     IsFile = (p.InvoiceFile != null && p.InvoiceFile.Length > 0),
                     AddedFile = p.InvoiceFile
                 }).ToListAsync();
+        }
+        public async Task<List<TblCustomer>> GetCustomerList(string token)
+        {
+            return await _dbContext.TblCustomers.Where(p=>p.DeletedTime == null).ToListAsync();
         }
         public async Task<Expense> AddExpense(string token, int projectId,Expense item)
         {
@@ -441,5 +484,39 @@ namespace SimurgWeb.Services
         public int UserId { get; set; }
         public string UserName { get; set; }
         public bool IsSelected { get; set; }
+    }
+
+    public class ProjectDetailModel
+    {
+        public int Id { get; set; }
+        public string ProjectName { get; set; }
+        public string CustomerName { get; set; }
+        public int? CustomerId { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public string CreatedBy { get; set; }
+        public bool IsActive { get; set; }
+        public string? Explanation { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+    }
+
+    public class Income
+    {
+        public int Id { get; set; }
+        public string Description { get; set; }
+        public decimal Amount { get; set; }
+        public IBrowserFile File { get; set; } // Dosya alanı eklendi
+        public byte[]? AddedFile { get; set; }
+        public bool IsFile { get; set; }
+    }
+
+    public class Expense
+    {
+        public int Id { get; set; }
+        public string Description { get; set; }
+        public decimal Amount { get; set; }
+        public IBrowserFile File { get; set; } // Dosya alanı eklendi
+        public byte[]? AddedFile { get; set; }
+        public bool IsFile { get; set; }
     }
 }

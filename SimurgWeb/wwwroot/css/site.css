@@ -63,10 +63,26 @@ a, .btn-link {
     color: white;
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
+.blazor-error-boundary::after {
+    content: "An error has occurred."
+}
 
+.custom-dropdown {
+    background-color: #f8f9fa; /* Açık gri arka plan */
+    border: 1px solid #ccc; /* Hafif çerçeve */
+    border-radius: 8px; /* Hafif yuvarlatılmış köşeler */
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2); /* Hafif gölge */
+    min-width: 180px; /* Menü genişliği artırıldı */
+}
 
+.custom-dropdown .dropdown-item {
+    font-size: 1rem; /* Yazı büyütüldü */
+    font-weight: 600; /* Kalın yapıldı */
+    padding: 10px 15px; /* İç boşluk artırıldı */
+    transition: background 0.3s ease-in-out; /* Hover efekti yumuşak yapıldı */
+}
 
-
+.custom-dropdown .dropdown-item:hover {
+    background-color: #007bff; /* Hover rengi mavi yapıldı */
+    color: white; /* Yazı rengi beyaz yapıldı */
+}

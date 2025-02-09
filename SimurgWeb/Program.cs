@@ -31,7 +31,7 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<LogService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PeriodService>();
-
+builder.Services.AddScoped<CustomerService>();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
