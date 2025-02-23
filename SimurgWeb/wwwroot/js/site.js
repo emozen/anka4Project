@@ -16,6 +16,50 @@ window.bootstrapModal = {
     }
 };
 
+window.renderDoughnutChart = (canvasId, chartData) => {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: chartData,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                title: {
+                    display: true,
+                    text: 'Gelir ve Gider Dağılımı'
+                }
+            }
+        }
+    });
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    window.renderDoughnutChart = (canvasId, chartData) => {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: chartData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Gelir ve Gider Dağılımı'
+                    }
+                }
+            }
+        });
+    };
+});
+
+
+
 function resetInputFile(inputElement) {
     inputElement.value = null;
 }

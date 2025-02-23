@@ -1,4 +1,246 @@
-﻿@attribute [Authorize]
+﻿@page "/report"
+@inject NavigationManager Navigation
+@using System.Globalization;
+@using SimurgWeb.Services
+@using SimurgWeb.SimurgModels
+@inject IJSRuntime JS
+@inject ReportService _reportService;
+
+<h3 class="mb-4">Rapor Sayfası</h3>
+
+<div class="d-flex gap-2 mb-3">
+    <button class="@GetButtonClass(true)" @onclick="ShowProjectReport">Proje Bazlı</button>
+    <button class="@GetButtonClass(false)" @onclick="ShowMonthlyReport">Ay Bazlı</button>
+</div>
+
+@if (isProjectReportActive)
+{
+    <div class="card p-4">
+        <div class="d-flex align-items-center gap-2">
+            @* <select class="form-control" @onchange="OnCustomerChanged">
+                <option value="">Müşteri Seçin</option>
+                @foreach (var customer in Customers)
+                {
+                    <option value="@customer.Id">@customer.CustomerName</option>
+                }
+            </select> *@
+
+            <select class="form-control" @onchange="OnCustomerChanged">
+                <option value="">Müşteri Seçin</option>
+                @foreach (var customer in Customers)
+                {
+                    <option value="@customer.Id" selected="@(customer.Id == selectedCustomer ? "selected" : null)">
+                        @customer.CustomerName
+                    </option>
+                }
+            </select>
+
+            <select class="form-control" @bind="selectedProject">
+                <option value="">Proje Seçin</option>
+                @foreach (var project in Projects)
+                {
+                    <option value="@project.Id">@project.ProjectName</option>
+                }
+            </select>
+
+            <div class="form-check form-check-inline">
+                <input type="radio" id="all" name="checkType" class="form-check-input" checked value="0" @onchange="SetIncomeExpense">
+                <label for="checkType" class="form-check-label">Tümü</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input type="radio" id="income" name="checkType" class="form-check-input" value="1" @onchange="SetIncomeExpense">
+                <label for="checkType" class="form-check-label">Gelir</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input type="radio" name="checkType" id="expense" class="form-check-input" value="2" @onchange="SetIncomeExpense">
+                <label for="checkType" class="form-check-label">Gider</label>
+            </div>
+
+            <button class="btn btn-success" @onclick="LoadProjectData">Raporla</button>
+        </div>
+
+        <div class="mt-4">
+            <table class="table table-bordered table-striped">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Müşteri</th>
+                        <th>Proje</th>
+                        <th>Gelir/Gider</th>
+                        <th class="text-end">Tutar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var report in ProjectReports)
+                    {
+                        <tr>
+                            <td>@report.Customer</td>
+                            <td>@report.Project</td>
+                            <td>@(report.IsIncome ? "Gelir" : "Gider")</td>
+                            <td class="text-end">@report.Amount.ToString("C", CultureInfo.GetCultureInfo("tr-TR"))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <p class="fw-bold text-end">Toplam: @TotalAmount.ToString("C", CultureInfo.GetCultureInfo("tr-TR"))</p>
+        </div>
+
+    </div>
+}
+@if (!isProjectReportActive)
+{
+    <div class="card p-4">
+        <div class="d-flex align-items-center gap-2">
+            <select class="form-control" @onchange="OnCustomerChanged">
+                <option value="">Müşteri Seçin</option>
+                @foreach (var customer in Customers)
+                {
+                    <option value="@customer.Id" selected="@(customer.Id == selectedCustomer ? "selected" : null)">
+                        @customer.CustomerName
+                    </option>
+                }
+            </select>
+
+            <select class="form-control" @bind="selectedProject">
+                <option value="">Proje Seçin</option>
+                @foreach (var project in Projects)
+                {
+                    <option value="@project.Id">@project.ProjectName</option>
+                }
+            </select>
+
+            <input type="month" class="form-control" @bind="selectedDate" />
+
+            <button class="btn btn-success" @onclick="GenerateChart">Raporla</button>
+        </div>
+
+        <div class="mt-4">
+            <canvas id="doughnutChart" width="300" height="300"></canvas>
+        </div>
+    </div>
+
+}
+
+@code {
+    public bool? isExpense = null;
+    private bool isProjectReportActive = true;
+    //private bool showMonthlyReport = false;
+    private int selectedCustomer;
+    private int selectedProject;
+    private string selectedType = "Tümü";
+    private DateTime selectedDate = DateTime.Today;
+    private List<TblCustomer> Customers = new();
+    private List<TblProject> Projects = new();
+    private List<ProjectReport> ProjectReports = new();
+    private decimal TotalAmount = 0;
+
+    private string GetButtonClass(bool isProjectButton)
+    {
+        return isProjectButton == isProjectReportActive
+            ? "btn btn-primary fw-bold shadow-sm px-4"  // Aktif buton
+            : "btn btn-outline-primary px-4";          // Pasif buton
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomerData();
+    }
+
+    private async Task OnCustomerChanged(ChangeEventArgs e)
+    {
+        var newValue = e.Value.ToString();
+        selectedCustomer = int.TryParse(newValue, out var id) ? id : 0;
+        await LoadProjectsData();
+    }
+
+    private void ShowProjectReport()
+    {
+        isProjectReportActive = true;
+    }
+
+    private void ShowMonthlyReport()
+    {
+        isProjectReportActive = false;
+    }
+
+    private async Task LoadCustomerData()
+    {
+        Customers = await _reportService.GetCustomersAsync();
+    }
+
+    private async Task LoadProjectsData()
+    {
+        Projects = await _reportService.GetProjectsAsync(selectedCustomer);
+    }
+
+    private async Task GetTotalAmount()
+    {
+        TotalAmount = await _reportService.GetTotalAmount(isExpense, selectedProject);
+    }
+
+    private async void LoadProjectData()
+    {
+        ProjectReports = await _reportService.GetIncomeExpenseList(isExpense, selectedProject);
+        await GetTotalAmount();
+        StateHasChanged();
+    }
+
+    private void SetIncomeExpense(ChangeEventArgs e)
+    {
+        var selectVal = e.Value as string;
+        switch (selectVal)
+        {
+            case "0":
+                isExpense = null;
+                break;
+            case "1":
+                isExpense = true;
+                break;
+            case "2":
+                isExpense = false;
+                break;
+            default:
+                isExpense = true;
+                break;
+        }
+    }
+
+    private async Task GenerateChart()
+    {
+        var doughnutReport = _reportService.GetDoughnutReport(selectedProject, selectedDate);
+        decimal gelir = doughnutReport.Income;
+        decimal gider = doughnutReport.Expense;
+
+        var jsCode = $@"
+        var existingChart = Chart.getChart('doughnutChart');
+        if (existingChart) {{
+            existingChart.destroy();
+        }}
+
+        var ctx = document.getElementById('doughnutChart').getContext('2d');
+        new Chart(ctx, {{
+            type: 'doughnut',
+            data: {{
+                labels: ['Gelir', 'Gider'],
+                datasets: [{{
+                    data: [{gelir}, {gider}],
+                    backgroundColor: ['#4CAF50', '#F44336']
+                }}]
+            }},
+            options: {{
+                responsive: false,
+                maintainAspectRatio: false
+            }}
+        }});";
+
+        await JS.InvokeVoidAsync("eval", jsCode);
+    }
+}
+
+
+
+@* @attribute [Authorize]
 @page "/report"
 @using SimurgWeb.Services
 @inject ReportService reportService
@@ -74,7 +316,7 @@
     public List<IncomeExpenseItems> incomeExpenseItemList { get; set; } = new();
     public int selectedProject { get; set; }
     public bool? isExpense = null;
-    public decimal totalAmount = 0M;    
+    public decimal totalAmount = 0M;
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,5 +355,6 @@
         // Raporu yükle
         incomeExpenseItemList = await reportService.GetIncomeExpenseList(isExpense, selectedProject);
         totalAmount = reportService.GetTotalAmount(incomeExpenseItemList);
-    }   
+    }
 }
+ *@

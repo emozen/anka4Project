@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Build.ObjectModelRemoting;
+using Microsoft.EntityFrameworkCore;
 using SimurgWeb.SimurgModels;
 
 namespace SimurgWeb.Services
@@ -12,37 +13,91 @@ namespace SimurgWeb.Services
             _dbContext = dbContext;            
         }
 
-        public async Task<List<ProjectList>> GetProjectList()
+        public async Task<List<TblCustomer>> GetCustomersAsync()
         {
-            return await _dbContext.TblProjects.Select(p => new ProjectList { Id = p.Id, ProjectName = p.ProjectName }).ToListAsync();
+            return await _dbContext.TblCustomers.Where(p=>p.DeletedTime == null).ToListAsync();
         }
 
-        public async Task<List<IncomeExpenseItems>> GetIncomeExpenseList(bool? isExpense, int projectId)
+        public async Task<List<TblProject>> GetProjectsAsync(int customerId)
+        {
+            return await _dbContext.TblProjects.Where(p=>p.CustomerId == customerId && p.IsDeleted == false).ToListAsync();
+        }
+
+        //public async Task<List<ProjectList>> GetProjectList()
+        //{
+        //    return await _dbContext.TblProjects.Select(p => new ProjectList { Id = p.Id, ProjectName = p.ProjectName }).ToListAsync();
+        //}
+
+        public async Task<List<ProjectReport>> GetIncomeExpenseList(bool? isExpense, int projectId)
         {
             var res = _dbContext.TblItems.Where(p => p.ProjectId == projectId && p.IsActive);
+                
             if (isExpense.HasValue)
             {
                 res = res.Where(p => p.IsExpenses == isExpense);
             }
 
-            return await res.Select(p => new IncomeExpenseItems { Description = p.Definition, Amount = p.Price }).ToListAsync();
+            res.Include(p => p.Project).ThenInclude(p => p.Customer);
+
+            return await res.Select(p => new ProjectReport { 
+                Amount = p.Price,
+                Customer = p.Project.Customer.CustomerName,
+                Project = p.Project.ProjectName,
+                IsIncome = p.IsExpenses
+            }).ToListAsync();
         }
 
-        public decimal GetTotalAmount(List<IncomeExpenseItems> list)
+        public async Task<decimal> GetTotalAmount(bool? isExpense, int projectId)
         {
-            return list.Sum(p => p.Amount);
-        }        
+            var res = _dbContext.TblItems.Where(p => p.ProjectId == projectId && p.IsActive);
+
+            if (isExpense.HasValue)
+            {
+                res = res.Where(p => p.IsExpenses == isExpense);
+            }
+
+            return await res.SumAsync(p=>p.Price);
+        }
+
+        public DoughnutReport GetDoughnutReport(int projectId, DateTime date)
+        {
+            try
+            {
+                var res = _dbContext.TblProjects.Include(p => p.TblItems).Where(p => p.IsActive && p.StartDatetime.HasValue &&
+                    p.StartDatetime.Value.Year == date.Year &&
+                    p.StartDatetime.Value.Month == date.Month);
+
+                var expenseTotal = res.SelectMany(p => p.TblItems).Count(x => x.IsExpenses);
+                var incomeTotal = res.SelectMany(p => p.TblItems).Count(x => !x.IsExpenses);
+
+                return new DoughnutReport
+                {
+                    Expense = expenseTotal,
+                    Income = incomeTotal,
+                    Total = expenseTotal + incomeTotal
+                };
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
     }
 
-    public class ProjectList
+    public class ProjectReport
     {
-        public int Id { get; set; }
-        public string? ProjectName { get; set; }
-    }
-
-    public class IncomeExpenseItems
-    {
-        public string Description { get; set; }
+        public string? Customer { get; set; }
+        public string Project { get; set; }
+        public bool IsIncome { get; set; }
         public decimal Amount { get; set; }
+
+    }
+
+    public class DoughnutReport
+    {
+        public decimal Income { get; set; }
+        public decimal Expense { get; set; }
+        public decimal Total { get; set; }
+
     }
 }
