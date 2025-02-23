@@ -63,7 +63,7 @@ namespace SimurgWeb.Services
         {
             try
             {
-                var res = _dbContext.TblProjects.Include(p => p.TblItems).Where(p => p.IsActive && p.StartDatetime.HasValue &&
+                var res = _dbContext.TblProjects.Include(p => p.TblItems).Where(p => p.TblItems.Any(x=>x.IsActive) && p.StartDatetime.HasValue &&
                     p.StartDatetime.Value.Year == date.Year &&
                     p.StartDatetime.Value.Month == date.Month);
 
