@@ -36,6 +36,8 @@ window.renderDoughnutChart = (canvasId, chartData) => {
     });
 };
 
+Chart.register(ChartDataLabels);
+
 document.addEventListener('DOMContentLoaded', function () {
     window.renderDoughnutChart = (canvasId, chartData) => {
         const ctx = document.getElementById(canvasId).getContext('2d');

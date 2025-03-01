@@ -43,7 +43,7 @@
                 }
             </select>
 
-            <div class="form-check form-check-inline">
+            @* <div class="form-check form-check-inline">
                 <input type="radio" id="all" name="checkType" class="form-check-input" checked value="0" @onchange="SetIncomeExpense">
                 <label for="checkType" class="form-check-label">Tümü</label>
             </div>
@@ -54,7 +54,7 @@
             <div class="form-check form-check-inline">
                 <input type="radio" name="checkType" id="expense" class="form-check-input" value="2" @onchange="SetIncomeExpense">
                 <label for="checkType" class="form-check-label">Gider</label>
-            </div>
+            </div> *@
 
             <button class="btn btn-success" @onclick="LoadProjectData">Raporla</button>
         </div>
@@ -65,8 +65,10 @@
                     <tr>
                         <th>Müşteri</th>
                         <th>Proje</th>
-                        <th>Gelir/Gider</th>
-                        <th class="text-end">Tutar</th>
+                        <th>Gelir</th>
+                        <th>Gelir Tutar</th>
+                        <th>Gider</th>
+                        <th>Gider Tutar</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -75,14 +77,26 @@
                         <tr>
                             <td>@report.Customer</td>
                             <td>@report.Project</td>
-                            <td>@(report.IsIncome ? "Gelir" : "Gider")</td>
-                            <td class="text-end">@report.Amount.ToString("C", CultureInfo.GetCultureInfo("tr-TR"))</td>
+                            <td>@(report.IsIncome ? "Gelir" : "")</td>
+                            <td>@(report.IsIncome ? $"{report.Amount:N2} ₺" : "")</td>
+                            <td>@(report.IsIncome ? "" : "Gider")</td>
+                            <td>@(report.IsIncome ? "" : $"{report.Amount:N2} ₺")</td>
                         </tr>
                     }
                 </tbody>
+                <tfoot >
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td><b>T.Gelir</b></td>
+                        <td><b>@($"{ProjectReports.Where(p => p.IsIncome).Sum(p => p.Amount):N2} ₺")</b></td>
+                        <td><b>T.Gider</b></td>
+                        <td><b>@($"{ProjectReports.Where(p => !p.IsIncome).Sum(p => p.Amount):N2} ₺")</b></td>
+                    </tr>
+                </tfoot>
             </table>
 
-            <p class="fw-bold text-end">Toplam: @TotalAmount.ToString("C", CultureInfo.GetCultureInfo("tr-TR"))</p>
+            <p class="fw-bold text-end">Toplam Kar/Zarar: @($"{(ProjectReports.Where(p => p.IsIncome).Sum(p => p.Amount) - ProjectReports.Where(p => !p.IsIncome).Sum(p => p.Amount)):N2} ₺")</p>
         </div>
 
     </div>
@@ -122,7 +136,7 @@
 }
 
 @code {
-    public bool? isExpense = null;
+    //public bool? isExpense = null;
     private bool isProjectReportActive = true;
     //private bool showMonthlyReport = false;
     private int selectedCustomer;
@@ -176,41 +190,63 @@
 
     private async Task GetTotalAmount()
     {
-        TotalAmount = await _reportService.GetTotalAmount(isExpense, selectedProject);
+        TotalAmount = await _reportService.GetTotalAmount(selectedProject);
     }
 
     private async void LoadProjectData()
     {
-        ProjectReports = await _reportService.GetIncomeExpenseList(isExpense, selectedProject);
+        ProjectReports = await _reportService.GetIncomeExpenseList(selectedProject);
         await GetTotalAmount();
         StateHasChanged();
     }
 
-    private void SetIncomeExpense(ChangeEventArgs e)
-    {
-        var selectVal = e.Value as string;
-        switch (selectVal)
-        {
-            case "0":
-                isExpense = null;
-                break;
-            case "1":
-                isExpense = true;
-                break;
-            case "2":
-                isExpense = false;
-                break;
-            default:
-                isExpense = true;
-                break;
-        }
-    }
+    // private void SetIncomeExpense(ChangeEventArgs e)
+    // {
+    //     var selectVal = e.Value as string;
+    //     switch (selectVal)
+    //     {
+    //         case "0":
+    //             isExpense = null;
+    //             break;
+    //         case "1":
+    //             isExpense = true;
+    //             break;
+    //         case "2":
+    //             isExpense = false;
+    //             break;
+    //         default:
+    //             isExpense = true;
+    //             break;
+    //     }
+    // }
 
     private async Task GenerateChart()
     {
         var doughnutReport = _reportService.GetDoughnutReport(selectedProject, selectedDate);
         decimal gelir = doughnutReport.Income;
         decimal gider = doughnutReport.Expense;
+
+        // var jsCode = $@"
+        // var existingChart = Chart.getChart('doughnutChart');
+        // if (existingChart) {{
+        //     existingChart.destroy();
+        // }}
+
+        // var ctx = document.getElementById('doughnutChart').getContext('2d');
+        // new Chart(ctx, {{
+        //     type: 'doughnut',
+        //     data: {{
+        //         labels: ['Gelir', 'Gider'],
+        //         datasets: [{{
+        //             data: [{gelir}, {gider}],
+        //             backgroundColor: ['#4CAF50', '#F44336']
+        //         }}]
+        //     }},
+        //     options: {{
+        //         responsive: false,
+        //         maintainAspectRatio: false
+        //     }}
+        // }});";
 
         var jsCode = $@"
         var existingChart = Chart.getChart('doughnutChart');
@@ -219,6 +255,8 @@
         }}
 
         var ctx = document.getElementById('doughnutChart').getContext('2d');
+        Chart.register(ChartDataLabels); // Chart.js'e plugin kaydedildi
+
         new Chart(ctx, {{
             type: 'doughnut',
             data: {{
@@ -230,131 +268,29 @@
             }},
             options: {{
                 responsive: false,
-                maintainAspectRatio: false
+                maintainAspectRatio: false,
+                plugins: {{
+                    tooltip: {{
+                        callbacks: {{
+                            label: function(tooltipItem) {{
+                                return tooltipItem.raw.toLocaleString('tr-TR') + ' ₺';
+                            }}
+                        }}
+                    }},
+                    datalabels: {{
+                        color: '#fff',
+                        font: {{
+                            weight: 'bold'
+                        }},
+                        formatter: function(value, context) {{
+                            return value.toLocaleString('tr-TR') + ' ₺';
+                        }}
+                    }}
+                }}
             }}
         }});";
+
 
         await JS.InvokeVoidAsync("eval", jsCode);
     }
 }
-
-
-
-@* @attribute [Authorize]
-@page "/report"
-@using SimurgWeb.Services
-@inject ReportService reportService
-@inject NavigationManager NavigationManager
-@using Microsoft.AspNetCore.Components.Forms
-
-<div class="container my-4">
-    <!-- Üst Kısım -->
-    <div class="row align-items-center mb-4">
-        <div class="col-md-4">
-            <select class="form-select" aria-label="Proje Seçimi" @bind="selectedProject" @bind:after="OnProjectChanged">
-                <option value="">Proje Seçin</option>
-                @if (projectList != null && projectList.Any())
-                {
-                    @foreach (var project in projectList)
-                    {
-                        <option value="@project.Id">@project.ProjectName</option>
-                    }
-                }
-            </select>
-        </div>
-        <div class="col-md-4">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" id="option1" name="options" checked value="0" @onchange="SetIncomeExpense">
-                <label class="form-check-label" for="income">Tümü</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" id="option1" name="options" value="1" @onchange="SetIncomeExpense">
-                <label class="form-check-label" for="income">Gelir</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" id="option2" name="options" value="2" @onchange="SetIncomeExpense">
-                <label class="form-check-label" for="expense">Gider</label>
-            </div>
-        </div>
-        <div class="col-md-4 text-end">
-            <button class="btn btn-primary" @onclick="GenerateReport">Raporla</button>
-        </div>
-    </div>
-
-    <!-- Liste -->
-    <div class="row">
-        <div class="col-12">
-            <ul class="list-group">
-                @if (incomeExpenseItemList != null && incomeExpenseItemList.Any())
-                {
-                    @foreach (var item in incomeExpenseItemList)
-                    {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span>@item.Description</span>
-                            <span class="badge bg-primary rounded-pill">@($"{item.Amount:N2} ₺")</span>
-                        </li>
-                    }
-                }
-                else
-                {
-                    <li class="list-group-item">Liste boş.</li>
-                }
-            </ul>
-        </div>
-    </div>
-
-    <!-- Toplam Fiyat -->
-    <div class="row mt-4">
-        <div class="col-12 text-end">
-            <h5>Toplam Fiyat: <span id="totalPrice">@($"{totalAmount:N2} ₺")</span></h5>
-        </div>
-    </div>
-</div>
-
-@code {
-    public List<ProjectList> projectList { get; set; } = new();
-    public List<IncomeExpenseItems> incomeExpenseItemList { get; set; } = new();
-    public int selectedProject { get; set; }
-    public bool? isExpense = null;
-    public decimal totalAmount = 0M;
-
-    protected override async Task OnInitializedAsync()
-    {
-        projectList = await reportService.GetProjectList();
-    }
-
-    private async Task OnProjectChanged()
-    {
-        // Proje değiştiğinde dosya ve listeyi sıfırla
-        incomeExpenseItemList.Clear();
-        totalAmount = 0M;
-    }
-
-    private async Task SetIncomeExpense(ChangeEventArgs e)
-    {
-        var selectVal = e.Value as string;
-        switch (selectVal)
-        {
-            case "0":
-                isExpense = null;
-                break;
-            case "1":
-                isExpense = true;
-                break;
-            case "2":
-                isExpense = false;
-                break;
-            default:
-                isExpense = true;
-                break;
-        }
-    }
-
-    private async Task GenerateReport()
-    {
-        // Raporu yükle
-        incomeExpenseItemList = await reportService.GetIncomeExpenseList(isExpense, selectedProject);
-        totalAmount = reportService.GetTotalAmount(incomeExpenseItemList);
-    }
-}
- *@

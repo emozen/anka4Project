@@ -1,5 +1,4 @@
-﻿using Microsoft.Build.ObjectModelRemoting;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SimurgWeb.SimurgModels;
 
 namespace SimurgWeb.Services
@@ -23,38 +22,23 @@ namespace SimurgWeb.Services
             return await _dbContext.TblProjects.Where(p=>p.CustomerId == customerId && p.IsDeleted == false).ToListAsync();
         }
 
-        //public async Task<List<ProjectList>> GetProjectList()
-        //{
-        //    return await _dbContext.TblProjects.Select(p => new ProjectList { Id = p.Id, ProjectName = p.ProjectName }).ToListAsync();
-        //}
-
-        public async Task<List<ProjectReport>> GetIncomeExpenseList(bool? isExpense, int projectId)
+        public async Task<List<ProjectReport>> GetIncomeExpenseList(int projectId)
         {
             var res = _dbContext.TblItems.Where(p => p.ProjectId == projectId && p.IsActive);
                 
-            if (isExpense.HasValue)
-            {
-                res = res.Where(p => p.IsExpenses == isExpense);
-            }
-
             res.Include(p => p.Project).ThenInclude(p => p.Customer);
 
             return await res.Select(p => new ProjectReport { 
                 Amount = p.Price,
                 Customer = p.Project.Customer.CustomerName,
                 Project = p.Project.ProjectName,
-                IsIncome = p.IsExpenses
+                IsIncome = !p.IsExpenses
             }).ToListAsync();
         }
 
-        public async Task<decimal> GetTotalAmount(bool? isExpense, int projectId)
+        public async Task<decimal> GetTotalAmount(int projectId)
         {
             var res = _dbContext.TblItems.Where(p => p.ProjectId == projectId && p.IsActive);
-
-            if (isExpense.HasValue)
-            {
-                res = res.Where(p => p.IsExpenses == isExpense);
-            }
 
             return await res.SumAsync(p=>p.Price);
         }
@@ -63,12 +47,22 @@ namespace SimurgWeb.Services
         {
             try
             {
-                var res = _dbContext.TblProjects.Include(p => p.TblItems).Where(p => p.TblItems.Any(x=>x.IsActive) && p.StartDatetime.HasValue &&
-                    p.StartDatetime.Value.Year == date.Year &&
-                    p.StartDatetime.Value.Month == date.Month);
+                var res = _dbContext.TblProjects
+                    .Include(p => p.TblItems)
+                    .Where(p => p.Id == projectId &&
+                                p.TblItems.Any(x => x.IsActive) &&
+                                p.StartDatetime.HasValue &&
+                                p.StartDatetime.Value.Year == date.Year &&
+                                p.StartDatetime.Value.Month == date.Month)
+                    .Select(p => new
+                    {
+                        ExpenseTotal = p.TblItems.Where(x => x.IsExpenses && x.IsActive).Sum(x => x.Price), // Giderler
+                        IncomeTotal = p.TblItems.Where(x => !x.IsExpenses && x.IsActive).Sum(x => x.Price)  // Gelirler
+                    })
+                    .ToList();
 
-                var expenseTotal = res.SelectMany(p => p.TblItems).Count(x => x.IsExpenses);
-                var incomeTotal = res.SelectMany(p => p.TblItems).Count(x => !x.IsExpenses);
+                var expenseTotal = res.Sum(x => x.ExpenseTotal);
+                var incomeTotal = res.Sum(x => x.IncomeTotal);
 
                 return new DoughnutReport
                 {
@@ -90,7 +84,6 @@ namespace SimurgWeb.Services
         public string Project { get; set; }
         public bool IsIncome { get; set; }
         public decimal Amount { get; set; }
-
     }
 
     public class DoughnutReport
@@ -98,6 +91,5 @@ namespace SimurgWeb.Services
         public decimal Income { get; set; }
         public decimal Expense { get; set; }
         public decimal Total { get; set; }
-
     }
 }
