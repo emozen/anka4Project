@@ -1,4 +1,5 @@
 ﻿@page "/report"
+@using System.Globalization;
 @inject NavigationManager Navigation
 @using System.Globalization;
 @using SimurgWeb.Services
@@ -17,14 +18,6 @@
 {
     <div class="card p-4">
         <div class="d-flex align-items-center gap-2">
-            @* <select class="form-control" @onchange="OnCustomerChanged">
-                <option value="">Müşteri Seçin</option>
-                @foreach (var customer in Customers)
-                {
-                    <option value="@customer.Id">@customer.CustomerName</option>
-                }
-            </select> *@
-
             <select class="form-control" @onchange="OnCustomerChanged">
                 <option value="">Müşteri Seçin</option>
                 @foreach (var customer in Customers)
@@ -42,19 +35,6 @@
                     <option value="@project.Id">@project.ProjectName</option>
                 }
             </select>
-
-            @* <div class="form-check form-check-inline">
-                <input type="radio" id="all" name="checkType" class="form-check-input" checked value="0" @onchange="SetIncomeExpense">
-                <label for="checkType" class="form-check-label">Tümü</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input type="radio" id="income" name="checkType" class="form-check-input" value="1" @onchange="SetIncomeExpense">
-                <label for="checkType" class="form-check-label">Gelir</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input type="radio" name="checkType" id="expense" class="form-check-input" value="2" @onchange="SetIncomeExpense">
-                <label for="checkType" class="form-check-label">Gider</label>
-            </div> *@
 
             <button class="btn btn-success" @onclick="LoadProjectData">Raporla</button>
         </div>
@@ -129,16 +109,14 @@
         </div>
 
         <div class="mt-4">
-            <canvas id="myCanvas" width="600" height="600"></canvas>
+            <canvas id="doughnutChart" width="400" height="400"></canvas>
         </div>
     </div>
 
 }
 
 @code {
-    //public bool? isExpense = null;
     private bool isProjectReportActive = true;
-    //private bool showMonthlyReport = false;
     private int selectedCustomer;
     private int selectedProject;
     private string selectedType = "Tümü";
@@ -200,119 +178,29 @@
         StateHasChanged();
     }
 
-    // private void SetIncomeExpense(ChangeEventArgs e)
-    // {
-    //     var selectVal = e.Value as string;
-    //     switch (selectVal)
-    //     {
-    //         case "0":
-    //             isExpense = null;
-    //             break;
-    //         case "1":
-    //             isExpense = true;
-    //             break;
-    //         case "2":
-    //             isExpense = false;
-    //             break;
-    //         default:
-    //             isExpense = true;
-    //             break;
-    //     }
-    // }
-
     private async Task GenerateChart()
     {
         var doughnutReport = _reportService.GetDoughnutReport(selectedProject, selectedDate);
         decimal gelir = doughnutReport.Income;
         decimal gider = doughnutReport.Expense;
 
-        var jsCode = $@"
-            function drawDoughnutChart(gelir, gider) {{
-                var canvas = document.getElementById('myCanvas');
-                if (!canvas) {{
-                    console.error('Canvas öğesi bulunamadı!');
-                    return;
-                }}
+        var lblGelir = $"{gelir:N2} ₺";
+        var lblGider = $"{gider:N2} ₺";
 
-                var ctx = canvas.getContext('2d');
-                console.log('Canvas bağlandı:', ctx);
+        var chartData = new
+        {
+            labels = new[] { $"Gelir: {lblGelir}", $"Gider: {lblGider}" },
+            datasets = new[]
+            {
+                new
+                {
+                    data = new[] { gelir, gider },
+                    backgroundColor = new[] { "#4CAF50", "#F44336" }
+                }
+            }
+        };
 
-                // Önce eski çizimi temizle
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Canvas boyutlarını artır (Daha büyük bir grafik için)
-                canvas.width = 600;
-                canvas.height = 600;
-
-                var total = gelir + gider;
-                var data = [gelir, gider];
-                var colors = ['#4CAF50', '#F44336']; // Gelir - Gider renkleri
-                var labels = ['Gelir', 'Gider'];
-
-                var centerX = canvas.width / 2;
-                var centerY = canvas.height / 2;
-                var outerRadius = 180;  // Daha büyük doughnut çapı
-                var innerRadius = 90;   // İç boşluğu büyüttük
-                var startAngle = 0;
-
-                console.log('Gelir:', gelir, 'Gider:', gider);
-
-                for (var i = 0; i < data.length; i++) {{
-                    var sliceAngle = (data[i] / total) * 2 * Math.PI;
-                    var endAngle = startAngle + sliceAngle;
-
-                    // Dilimi çiz
-                    ctx.beginPath();
-                    ctx.moveTo(centerX, centerY);
-                    ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
-                    ctx.closePath();
-                    ctx.fillStyle = colors[i];
-                    ctx.fill();
-
-                    // İç kısmı oluştur (Doughnut efekti)
-                    ctx.beginPath();
-                    ctx.moveTo(centerX, centerY);
-                    ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
-                    ctx.fillStyle = '#fff'; // Ortası beyaz olacak
-                    ctx.fill();
-
-                    // Yazıyı ekle (Dilimin içine değerleri yaz)
-                    var midAngle = startAngle + sliceAngle / 2;
-                    var textX = centerX + Math.cos(midAngle) * (outerRadius / 1.4);
-                    var textY = centerY + Math.sin(midAngle) * (outerRadius / 1.4);
-
-                    ctx.fillStyle = '#fff'; // Yazı rengi
-                    ctx.font = 'bold 20px Arial'; // Daha büyük font
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(data[i].toLocaleString('tr-TR') + ' ₺', textX, textY);
-
-                    startAngle = endAngle;
-                }}
-
-                // ✅ Gelir ve Gider için Açıklama (Legend) ekle
-                var legendX = canvas.width - 180; // Sağ üst köşeye hizala
-                var legendY = 50;
-
-                for (var i = 0; i < labels.length; i++) {{
-                    // Renk kutusunu çiz
-                    ctx.fillStyle = colors[i];
-                    ctx.fillRect(legendX, legendY + (i * 30), 20, 20);
-
-                    // Açıklamayı yaz
-                    ctx.fillStyle = '#000'; // Siyah yazı
-                    ctx.font = 'bold 18px Arial';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(labels[i], legendX + 30, legendY + 15 + (i * 30));
-                }}
-            }}
-
-            // Örnek kullanım (Grafik başlat)
-            drawDoughnutChart({gelir}, {gider});
-";
-
-        await JS.InvokeVoidAsync("eval", jsCode);
-
-
+        await JS.InvokeVoidAsync("drawDoughnutChart", "doughnutChart", chartData);
     }
+
 }
